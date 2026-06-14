@@ -1,0 +1,59 @@
+package com.restaurantmanager.network.packet;
+
+import com.restaurantmanager.restaurant.Restaurant;
+import com.restaurantmanager.restaurant.RestaurantManager;
+import net.minecraft.core.BlockPos;
+import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.network.chat.Component;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraftforge.network.NetworkEvent;
+
+import java.util.Optional;
+import java.util.function.Supplier;
+
+public class ToggleRestaurantOpenPacket {
+    private final BlockPos signPos;
+    private final boolean open;
+
+    public ToggleRestaurantOpenPacket(BlockPos signPos, boolean open) {
+        this.signPos = signPos;
+        this.open = open;
+    }
+
+    public static void encode(ToggleRestaurantOpenPacket packet, FriendlyByteBuf buffer) {
+        buffer.writeBlockPos(packet.signPos);
+        buffer.writeBoolean(packet.open);
+    }
+
+    public static ToggleRestaurantOpenPacket decode(FriendlyByteBuf buffer) {
+        return new ToggleRestaurantOpenPacket(buffer.readBlockPos(), buffer.readBoolean());
+    }
+
+    public static void handle(ToggleRestaurantOpenPacket packet, Supplier<NetworkEvent.Context> contextSupplier) {
+        NetworkEvent.Context context = contextSupplier.get();
+        context.enqueueWork(() -> {
+            ServerPlayer player = context.getSender();
+            if (player == null || !(player.level() instanceof ServerLevel level)) {
+                return;
+            }
+            if (player.distanceToSqr(packet.signPos.getX() + 0.5, packet.signPos.getY() + 0.5, packet.signPos.getZ() + 0.5) > 64.0) {
+                return;
+            }
+
+            RestaurantManager manager = RestaurantManager.get(level);
+            Optional<Restaurant> restaurant = manager.findBySignPos(packet.signPos);
+            if (restaurant.isEmpty()) {
+                player.sendSystemMessage(Component.literal("No registered restaurant found for this sign."));
+                return;
+            }
+
+            Restaurant value = restaurant.get();
+            value.setOpen(packet.open);
+            manager.setDirty();
+            player.sendSystemMessage(Component.literal("\"" + value.getName() + "\" restaurant is "
+                    + (packet.open ? "opened." : "closed.")));
+        });
+        context.setPacketHandled(true);
+    }
+}
