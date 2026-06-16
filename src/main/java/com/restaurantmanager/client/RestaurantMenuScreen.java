@@ -2,6 +2,7 @@ package com.restaurantmanager.client;
 
 import com.restaurantmanager.network.ModNetwork;
 import com.restaurantmanager.network.packet.UpdateRestaurantMenuPacket;
+import com.restaurantmanager.restaurant.MenuCategory;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.Screen;
@@ -24,6 +25,7 @@ public class RestaurantMenuScreen extends Screen {
     private static final int ERROR_TEXT_COLOR = 0x8A1F1F;
 
     private final BlockPos signPos;
+    private final MenuCategory category;
     private final List<ResourceLocation> menuItems = new ArrayList<>();
     private int leftPos;
     private int topPos;
@@ -36,9 +38,10 @@ public class RestaurantMenuScreen extends Screen {
     private int backX;
     private int backY;
 
-    public RestaurantMenuScreen(BlockPos signPos, List<ResourceLocation> menuItems) {
+    public RestaurantMenuScreen(BlockPos signPos, MenuCategory category, List<ResourceLocation> menuItems) {
         super(Component.literal("Restaurant Menu"));
         this.signPos = signPos;
+        this.category = category == null ? MenuCategory.MAIN_DISH : category;
         this.menuItems.addAll(menuItems);
     }
 
@@ -67,7 +70,7 @@ public class RestaurantMenuScreen extends Screen {
                 0.0F, 0.0F, TEXTURE_SIZE, TEXTURE_SIZE, TEXTURE_SIZE, TEXTURE_SIZE);
         int textX = this.leftPos + 86;
         int headerWidth = this.leftPos + this.panelWidth - 16 - textX;
-        drawFittedString(graphics, "Restaurant Menu", textX, this.topPos + 18, headerWidth, TEXT_COLOR);
+        drawFittedString(graphics, this.category.getDisplayName(), textX, this.topPos + 18, headerWidth, TEXT_COLOR);
         drawFittedString(graphics, "Add food below. Click list item to remove.", textX, this.topPos + 30,
                 headerWidth, MUTED_TEXT_COLOR);
 
@@ -112,16 +115,13 @@ public class RestaurantMenuScreen extends Screen {
             return;
         }
         for (int slot = 0; slot < 36; slot++) {
-            int x = this.gridX + (slot % 9) * 20;
-            int y = this.gridY + (slot / 9) * 18;
+            int x = this.gridX + (slot % 9) * InventoryPanelRenderer.SLOT_STEP;
+            int y = this.gridY + (slot / 9) * InventoryPanelRenderer.SLOT_STEP;
             ItemStack stack = player.getInventory().getItem(slot);
             drawSlot(graphics, x, y, !stack.isEmpty() && stack.isEdible());
-            if (!stack.isEmpty()) {
-                graphics.renderItem(stack, x + 1, y + 1);
-                graphics.renderItemDecorations(this.font, stack, x + 1, y + 1);
-            }
-            if (isInside(mouseX, mouseY, x, y, 18, 18)) {
-                graphics.fill(x, y, x + 18, y + 18, 0x66FFFFFF);
+            InventoryPanelRenderer.drawStack(graphics, this.font, stack, x, y);
+            if (isInside(mouseX, mouseY, x, y, InventoryPanelRenderer.SLOT_SIZE, InventoryPanelRenderer.SLOT_SIZE)) {
+                InventoryPanelRenderer.drawHover(graphics, x, y);
                 hovered = stack;
             }
         }
@@ -141,7 +141,7 @@ public class RestaurantMenuScreen extends Screen {
             int y = this.listY + i * 12;
             if (isInside(mouseX, mouseY, this.listX - 2, y - 2, this.panelWidth - 120, 12)) {
                 ResourceLocation id = menuItems.remove(i);
-                ModNetwork.CHANNEL.sendToServer(new UpdateRestaurantMenuPacket(this.signPos, id, UpdateRestaurantMenuPacket.Action.REMOVE));
+                ModNetwork.CHANNEL.sendToServer(new UpdateRestaurantMenuPacket(this.signPos, this.category, id, UpdateRestaurantMenuPacket.Action.REMOVE));
                 return true;
             }
         }
@@ -149,14 +149,14 @@ public class RestaurantMenuScreen extends Screen {
         Player player = Minecraft.getInstance().player;
         if (player != null) {
             for (int slot = 0; slot < 36; slot++) {
-                int x = this.gridX + (slot % 9) * 20;
-                int y = this.gridY + (slot / 9) * 18;
-                if (isInside(mouseX, mouseY, x, y, 18, 18)) {
+                int x = this.gridX + (slot % 9) * InventoryPanelRenderer.SLOT_STEP;
+                int y = this.gridY + (slot / 9) * InventoryPanelRenderer.SLOT_STEP;
+                if (isInside(mouseX, mouseY, x, y, InventoryPanelRenderer.SLOT_SIZE, InventoryPanelRenderer.SLOT_SIZE)) {
                     ItemStack stack = player.getInventory().getItem(slot);
                     ResourceLocation id = stack.isEmpty() ? null : ForgeRegistries.ITEMS.getKey(stack.getItem());
                     if (id != null && stack.isEdible() && !menuItems.contains(id)) {
                         menuItems.add(id);
-                        ModNetwork.CHANNEL.sendToServer(new UpdateRestaurantMenuPacket(this.signPos, id, UpdateRestaurantMenuPacket.Action.ADD));
+                        ModNetwork.CHANNEL.sendToServer(new UpdateRestaurantMenuPacket(this.signPos, this.category, id, UpdateRestaurantMenuPacket.Action.ADD));
                     }
                     return true;
                 }
@@ -166,9 +166,10 @@ public class RestaurantMenuScreen extends Screen {
     }
 
     private void drawSlot(GuiGraphics graphics, int x, int y, boolean edible) {
-        graphics.fill(x, y, x + 18, y + 18, edible ? 0xFF6A8D46 : 0xFF565656);
-        graphics.fill(x + 1, y + 1, x + 17, y + 17, 0xFF8D8D8D);
-        graphics.fill(x + 2, y + 2, x + 16, y + 16, 0xFF303030);
+        if (x == this.gridX && y == this.gridY) {
+            InventoryPanelRenderer.drawPanel(graphics, this.gridX, this.gridY);
+        }
+        InventoryPanelRenderer.drawHighlight(graphics, x, y, edible);
     }
 
     private void drawButton(GuiGraphics graphics, int x, int y, int width, int height, String label, int color, int mouseX, int mouseY) {

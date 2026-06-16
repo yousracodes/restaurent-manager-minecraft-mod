@@ -3,6 +3,12 @@ package com.restaurantmanager.restaurant;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.phys.AABB;
 
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 
 public class Restaurant {
@@ -20,18 +26,25 @@ public class Restaurant {
     private String name;
     private UUID ownerUuid;
     private String ownerName;
-    private final RestaurantMenu menu;
+    private final List<RestaurantMenu> menus = new ArrayList<>();
 
     public Restaurant(UUID id, BlockPos signPos, AABB bounds, int reputation, int customersServed, int ordersCompleted,
                       int ordersFailed, int customersLost, int moneyEarned, boolean open, String name,
                       UUID ownerUuid, String ownerName, RestaurantMenu menu) {
         this(id, signPos, bounds, reputation, customersServed, ordersCompleted, ordersFailed, customersLost,
-                moneyEarned, open, true, name, ownerUuid, ownerName, menu);
+                moneyEarned, open, true, name, ownerUuid, ownerName, menu == null ? List.of() : List.of(menu));
     }
 
     public Restaurant(UUID id, BlockPos signPos, AABB bounds, int reputation, int customersServed, int ordersCompleted,
                       int ordersFailed, int customersLost, int moneyEarned, boolean open, boolean active, String name,
                       UUID ownerUuid, String ownerName, RestaurantMenu menu) {
+        this(id, signPos, bounds, reputation, customersServed, ordersCompleted, ordersFailed, customersLost,
+                moneyEarned, open, active, name, ownerUuid, ownerName, menu == null ? List.of() : List.of(menu));
+    }
+
+    public Restaurant(UUID id, BlockPos signPos, AABB bounds, int reputation, int customersServed, int ordersCompleted,
+                      int ordersFailed, int customersLost, int moneyEarned, boolean open, boolean active, String name,
+                      UUID ownerUuid, String ownerName, List<RestaurantMenu> menus) {
         this.id = id;
         this.signPos = signPos;
         this.bounds = bounds;
@@ -46,7 +59,7 @@ public class Restaurant {
         this.name = name == null || name.isBlank() ? "Restaurant" : name;
         this.ownerUuid = ownerUuid;
         this.ownerName = ownerName == null ? "" : ownerName;
-        this.menu = menu;
+        replaceMenus(menus);
     }
 
     public Restaurant(UUID id, BlockPos signPos, AABB bounds, int reputation, int customersServed, boolean open, RestaurantMenu menu) {
@@ -87,6 +100,22 @@ public class Restaurant {
         return reputation;
     }
 
+    public int getStarRating() {
+        if (reputation >= 1000) {
+            return 5;
+        }
+        if (reputation >= 500) {
+            return 4;
+        }
+        if (reputation >= 250) {
+            return 3;
+        }
+        if (reputation >= 100) {
+            return 2;
+        }
+        return 1;
+    }
+
     public int getCustomersServed() {
         return customersServed;
     }
@@ -123,6 +152,10 @@ public class Restaurant {
         return ownerUuid != null;
     }
 
+    public boolean isOwner(UUID playerUuid) {
+        return ownerUuid == null || ownerUuid.equals(playerUuid);
+    }
+
     public void setIdentity(String name, UUID ownerUuid, String ownerName) {
         this.name = name == null || name.isBlank() ? "Restaurant" : name;
         this.ownerUuid = ownerUuid;
@@ -150,7 +183,90 @@ public class Restaurant {
     }
 
     public RestaurantMenu getMenu() {
-        return menu;
+        return menus.isEmpty() ? addOrReplaceMenu(new RestaurantMenu()) : menus.get(0);
+    }
+
+    public List<RestaurantMenu> getMenus() {
+        return Collections.unmodifiableList(menus);
+    }
+
+    public Optional<RestaurantMenu> getMenuByCategory(MenuCategory category) {
+        MenuCategory resolvedCategory = category == null ? MenuCategory.MAIN_DISH : category;
+        return menus.stream().filter(menu -> menu.getCategory() == resolvedCategory).findFirst();
+    }
+
+    public RestaurantMenu getOrCreateMenu(MenuCategory category) {
+        return getMenuByCategory(category).orElseGet(() -> addOrReplaceMenu(new RestaurantMenu("", category, List.of())));
+    }
+
+    public RestaurantMenu addOrReplaceMenu(RestaurantMenu menu) {
+        RestaurantMenu resolvedMenu = menu == null ? new RestaurantMenu() : menu;
+        removeMenu(resolvedMenu.getCategory());
+        menus.add(resolvedMenu);
+        return resolvedMenu;
+    }
+
+    public boolean removeMenu(MenuCategory category) {
+        MenuCategory resolvedCategory = category == null ? MenuCategory.MAIN_DISH : category;
+        return menus.removeIf(menu -> menu.getCategory() == resolvedCategory);
+    }
+
+    public void replaceMenus(List<RestaurantMenu> newMenus) {
+        menus.clear();
+        if (newMenus != null) {
+            for (RestaurantMenu menu : newMenus) {
+                if (menu != null) {
+                    addOrReplaceMenu(menu);
+                }
+            }
+        }
+        if (menus.isEmpty()) {
+            menus.add(new RestaurantMenu());
+        }
+    }
+
+    public int getMenuItemCount() {
+        return menus.stream().mapToInt(menu -> menu.getItems().size()).sum();
+    }
+
+    public boolean hasMenuItems() {
+        return menus.stream().anyMatch(menu -> !menu.isEmpty());
+    }
+
+    public int getUniqueMenuItemCount() {
+        Set<net.minecraft.resources.ResourceLocation> uniqueItems = new HashSet<>();
+        for (RestaurantMenu menu : menus) {
+            uniqueItems.addAll(menu.getItems());
+        }
+        return uniqueItems.size();
+    }
+
+    public int getMenuCategoryCount() {
+        return (int) menus.stream()
+                .filter(menu -> !menu.isEmpty())
+                .map(RestaurantMenu::getCategory)
+                .distinct()
+                .count();
+    }
+
+    public int getVarietyReputationBonus() {
+        int bonus = 0;
+        int uniqueItems = getUniqueMenuItemCount();
+        int categories = getMenuCategoryCount();
+
+        if (uniqueItems >= 5) {
+            bonus++;
+        }
+        if (uniqueItems >= 10) {
+            bonus++;
+        }
+        if (categories >= 3) {
+            bonus++;
+        }
+        if (categories >= 5) {
+            bonus++;
+        }
+        return bonus;
     }
 
     public void addCustomerServed() {

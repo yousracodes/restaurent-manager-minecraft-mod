@@ -3,8 +3,10 @@ package com.restaurantmanager.network;
 import com.restaurantmanager.network.packet.OpenRestaurantManagementPacket;
 import com.restaurantmanager.network.packet.OpenRestaurantMenuPacket;
 import com.restaurantmanager.network.packet.OpenCustomerSuggestionPacket;
+import com.restaurantmanager.network.packet.OpenTakeoutNegotiationPacket;
 import com.restaurantmanager.network.packet.ApplyRestaurantMenuItemPacket;
 import com.restaurantmanager.network.packet.RenameRestaurantPacket;
+import com.restaurantmanager.network.packet.RemoveRestaurantMenuPacket;
 import com.restaurantmanager.network.packet.RequestRestaurantMenuPacket;
 import com.restaurantmanager.network.packet.SaveMenuItemPacket;
 import com.restaurantmanager.network.packet.ServeCustomerPacket;
@@ -62,6 +64,13 @@ public class ModNetwork {
         );
         CHANNEL.registerMessage(
                 nextId(),
+                OpenTakeoutNegotiationPacket.class,
+                OpenTakeoutNegotiationPacket::encode,
+                OpenTakeoutNegotiationPacket::decode,
+                OpenTakeoutNegotiationPacket::handle
+        );
+        CHANNEL.registerMessage(
+                nextId(),
                 RequestRestaurantMenuPacket.class,
                 RequestRestaurantMenuPacket::encode,
                 RequestRestaurantMenuPacket::decode,
@@ -101,6 +110,13 @@ public class ModNetwork {
                 ApplyRestaurantMenuItemPacket::encode,
                 ApplyRestaurantMenuItemPacket::decode,
                 ApplyRestaurantMenuItemPacket::handle
+        );
+        CHANNEL.registerMessage(
+                nextId(),
+                RemoveRestaurantMenuPacket.class,
+                RemoveRestaurantMenuPacket::encode,
+                RemoveRestaurantMenuPacket::decode,
+                RemoveRestaurantMenuPacket::handle
         );
     }
 }

@@ -34,18 +34,51 @@ public final class RestaurantSeatingApi {
     }
 
     public static void markTable(BlockPos pos, Level level) {
-        if (level instanceof ServerLevel serverLevel) {
-            SeatingMarkSavedData.get(serverLevel).mark(new MarkedPoint(
-                    pos,
-                    level.dimension(),
-                    MarkType.TABLE,
-                    Vec3.atCenterOf(pos)
-            ));
-        }
+        markPoint(pos, level, MarkType.TABLE, Vec3.atCenterOf(pos));
     }
 
     public static void unmarkTable(BlockPos pos, Level level) {
         if (level instanceof ServerLevel serverLevel && SeatingMarkSavedData.get(serverLevel).isTable(pos)) {
+            SeatingMarkSavedData.get(serverLevel).unmark(pos);
+        }
+    }
+
+    public static void markQueueSpot(BlockPos pos, Level level) {
+        markPoint(pos, level, MarkType.QUEUE, Vec3.atBottomCenterOf(pos));
+    }
+
+    public static void unmarkQueueSpot(BlockPos pos, Level level) {
+        if (level instanceof ServerLevel serverLevel && SeatingMarkSavedData.get(serverLevel).isQueue(pos)) {
+            SeatingMarkSavedData.get(serverLevel).unmark(pos);
+        }
+    }
+
+    public static void markCounter(BlockPos pos, Level level) {
+        markPoint(pos, level, MarkType.COUNTER, Vec3.atBottomCenterOf(pos.relative(Direction.UP)));
+    }
+
+    public static void unmarkCounter(BlockPos pos, Level level) {
+        if (level instanceof ServerLevel serverLevel && SeatingMarkSavedData.get(serverLevel).isCounter(pos)) {
+            SeatingMarkSavedData.get(serverLevel).unmark(pos);
+        }
+    }
+
+    public static void markEntrance(BlockPos pos, Level level) {
+        markPoint(pos, level, MarkType.ENTRANCE, Vec3.atBottomCenterOf(pos));
+    }
+
+    public static void unmarkEntrance(BlockPos pos, Level level) {
+        if (level instanceof ServerLevel serverLevel && SeatingMarkSavedData.get(serverLevel).isEntrance(pos)) {
+            SeatingMarkSavedData.get(serverLevel).unmark(pos);
+        }
+    }
+
+    public static void markExit(BlockPos pos, Level level) {
+        markPoint(pos, level, MarkType.EXIT, Vec3.atBottomCenterOf(pos));
+    }
+
+    public static void unmarkExit(BlockPos pos, Level level) {
+        if (level instanceof ServerLevel serverLevel && SeatingMarkSavedData.get(serverLevel).isExit(pos)) {
             SeatingMarkSavedData.get(serverLevel).unmark(pos);
         }
     }
@@ -58,6 +91,22 @@ public final class RestaurantSeatingApi {
         return level instanceof ServerLevel serverLevel && SeatingMarkSavedData.get(serverLevel).isTable(pos);
     }
 
+    public static boolean isQueueSpot(BlockPos pos, Level level) {
+        return level instanceof ServerLevel serverLevel && SeatingMarkSavedData.get(serverLevel).isQueue(pos);
+    }
+
+    public static boolean isCounter(BlockPos pos, Level level) {
+        return level instanceof ServerLevel serverLevel && SeatingMarkSavedData.get(serverLevel).isCounter(pos);
+    }
+
+    public static boolean isEntrance(BlockPos pos, Level level) {
+        return level instanceof ServerLevel serverLevel && SeatingMarkSavedData.get(serverLevel).isEntrance(pos);
+    }
+
+    public static boolean isExit(BlockPos pos, Level level) {
+        return level instanceof ServerLevel serverLevel && SeatingMarkSavedData.get(serverLevel).isExit(pos);
+    }
+
     public static List<MarkedPoint> getNearbySeats(BlockPos restaurantCenter, double radius, ServerLevel level) {
         return SeatingMarkSavedData.get(level).getNearbySeats(restaurantCenter, radius);
     }
@@ -66,12 +115,75 @@ public final class RestaurantSeatingApi {
         return SeatingMarkSavedData.get(level).findNearestAvailableSeat(restaurantCenter, radius);
     }
 
+    public static Optional<MarkedPoint> findNearestTable(BlockPos center, double radius, ServerLevel level) {
+        return SeatingMarkSavedData.get(level).findNearestTable(center, radius);
+    }
+
+    public static Optional<MarkedPoint> findNearestAvailableQueueSpot(BlockPos restaurantCenter, double radius, ServerLevel level) {
+        return SeatingMarkSavedData.get(level).findNearestAvailableQueueSpot(restaurantCenter, radius);
+    }
+
+    public static Optional<MarkedPoint> findNearestAvailableCounter(BlockPos restaurantCenter, double radius, ServerLevel level) {
+        return SeatingMarkSavedData.get(level).findNearestAvailableCounter(restaurantCenter, radius);
+    }
+
+    public static Optional<MarkedPoint> findNearestEntrance(BlockPos restaurantCenter, double radius, ServerLevel level) {
+        return SeatingMarkSavedData.get(level).findNearestEntrance(restaurantCenter, radius);
+    }
+
+    public static Optional<MarkedPoint> findNearestExit(BlockPos restaurantCenter, double radius, ServerLevel level) {
+        return SeatingMarkSavedData.get(level).findNearestExit(restaurantCenter, radius);
+    }
+
     public static boolean occupySeat(BlockPos pos, UUID entityId, ServerLevel level) {
         return SeatingMarkSavedData.get(level).occupySeat(pos, entityId);
     }
 
+    public static boolean occupyQueueSpot(BlockPos pos, UUID entityId, ServerLevel level) {
+        return SeatingMarkSavedData.get(level).occupyQueueSpot(pos, entityId);
+    }
+
+    public static boolean occupyCounter(BlockPos pos, UUID entityId, ServerLevel level) {
+        return SeatingMarkSavedData.get(level).occupyCounter(pos, entityId);
+    }
+
     public static void releaseSeat(BlockPos pos, UUID entityId, ServerLevel level) {
         SeatingMarkSavedData.get(level).releaseSeat(pos, entityId);
+    }
+
+    public static void releaseQueueSpot(BlockPos pos, UUID entityId, ServerLevel level) {
+        SeatingMarkSavedData.get(level).releaseQueueSpot(pos, entityId);
+    }
+
+    public static void releaseCounter(BlockPos pos, UUID entityId, ServerLevel level) {
+        SeatingMarkSavedData.get(level).releaseCounter(pos, entityId);
+    }
+
+    public static boolean isFrontOccupiedQueueSpot(BlockPos pos, BlockPos restaurantCenter, double radius, ServerLevel level) {
+        return SeatingMarkSavedData.get(level).isFrontOccupiedQueueSpot(pos, restaurantCenter, radius);
+    }
+
+    public static Optional<MarkedPoint> findEarlierAvailableQueueSpot(BlockPos currentPos, BlockPos restaurantCenter, double radius, ServerLevel level) {
+        return SeatingMarkSavedData.get(level).findEarlierAvailableQueueSpot(currentPos, restaurantCenter, radius);
+    }
+
+    public static Optional<BlockPos> getLinkedTable(BlockPos seatPos, ServerLevel level) {
+        return SeatingMarkSavedData.get(level).getLinkedTable(seatPos);
+    }
+
+    public static void linkSeatToTable(BlockPos seatPos, BlockPos tablePos, ServerLevel level) {
+        SeatingMarkSavedData.get(level).linkSeatToTable(seatPos, tablePos);
+    }
+
+    private static void markPoint(BlockPos pos, Level level, MarkType type, Vec3 interactionPosition) {
+        if (level instanceof ServerLevel serverLevel) {
+            SeatingMarkSavedData.get(serverLevel).mark(new MarkedPoint(
+                    pos,
+                    level.dimension(),
+                    type,
+                    interactionPosition
+            ));
+        }
     }
 
     private static Vec3 computeSeatPosition(BlockPos pos, Level level) {

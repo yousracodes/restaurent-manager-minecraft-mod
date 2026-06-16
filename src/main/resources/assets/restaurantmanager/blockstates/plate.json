@@ -1,0 +1,10 @@
+{
+  "variants": {
+    "filled=false": {
+      "model": "restaurantmanager:block/plate"
+    },
+    "filled=true": {
+      "model": "restaurantmanager:block/plate"
+    }
+  }
+}

@@ -27,6 +27,9 @@ public class SeatingMarkSavedData extends SavedData {
 
     private final Map<BlockPos, MarkedPoint> marks = new HashMap<>();
     private final Map<BlockPos, UUID> occupiedSeats = new HashMap<>();
+    private final Map<BlockPos, UUID> occupiedQueueSpots = new HashMap<>();
+    private final Map<BlockPos, UUID> occupiedCounters = new HashMap<>();
+    private final Map<BlockPos, BlockPos> seatTables = new HashMap<>();
 
     public static SeatingMarkSavedData get(ServerLevel level) {
         return level.getDataStorage().computeIfAbsent(tag -> load(tag, level.dimension()), SeatingMarkSavedData::new, KEY);
@@ -42,8 +45,18 @@ public class SeatingMarkSavedData extends SavedData {
             ResourceKey<Level> dimension = readDimension(tag, fallbackDimension);
             Vec3 interactionPosition = new Vec3(tag.getDouble("x"), tag.getDouble("y"), tag.getDouble("z"));
             data.marks.put(pos, new MarkedPoint(pos, dimension, type, interactionPosition));
-            if (tag.hasUUID("occupiedBy") && type == MarkType.SEAT) {
-                data.occupiedSeats.put(pos, tag.getUUID("occupiedBy"));
+            if (tag.hasUUID("occupiedBy")) {
+                UUID occupant = tag.getUUID("occupiedBy");
+                if (type == MarkType.SEAT) {
+                    data.occupiedSeats.put(pos, occupant);
+                } else if (type == MarkType.QUEUE) {
+                    data.occupiedQueueSpots.put(pos, occupant);
+                } else if (type == MarkType.COUNTER) {
+                    data.occupiedCounters.put(pos, occupant);
+                }
+            }
+            if (tag.contains("tablePos") && type == MarkType.SEAT) {
+                data.seatTables.put(pos, NbtUtils.readBlockPos(tag.getCompound("tablePos")));
             }
         }
         return data;
@@ -62,12 +75,24 @@ public class SeatingMarkSavedData extends SavedData {
         if (point.getType() != MarkType.SEAT) {
             occupiedSeats.remove(point.getPos());
         }
+        if (point.getType() != MarkType.QUEUE) {
+            occupiedQueueSpots.remove(point.getPos());
+        }
+        if (point.getType() != MarkType.COUNTER) {
+            occupiedCounters.remove(point.getPos());
+        }
+        if (point.getType() != MarkType.SEAT) {
+            seatTables.remove(point.getPos());
+        }
         setDirty();
     }
 
     public void unmark(BlockPos pos) {
         if (marks.remove(pos) != null) {
             occupiedSeats.remove(pos);
+            occupiedQueueSpots.remove(pos);
+            occupiedCounters.remove(pos);
+            seatTables.remove(pos);
             setDirty();
         }
     }
@@ -78,6 +103,22 @@ public class SeatingMarkSavedData extends SavedData {
 
     public boolean isTable(BlockPos pos) {
         return isType(pos, MarkType.TABLE);
+    }
+
+    public boolean isQueue(BlockPos pos) {
+        return isType(pos, MarkType.QUEUE);
+    }
+
+    public boolean isCounter(BlockPos pos) {
+        return isType(pos, MarkType.COUNTER);
+    }
+
+    public boolean isEntrance(BlockPos pos) {
+        return isType(pos, MarkType.ENTRANCE);
+    }
+
+    public boolean isExit(BlockPos pos) {
+        return isType(pos, MarkType.EXIT);
     }
 
     public boolean isType(BlockPos pos, MarkType type) {
@@ -94,9 +135,33 @@ public class SeatingMarkSavedData extends SavedData {
     }
 
     public List<MarkedPoint> getNearbySeats(BlockPos restaurantCenter, double radius) {
+        return getNearbyPoints(restaurantCenter, radius, MarkType.SEAT);
+    }
+
+    public List<MarkedPoint> getNearbyTables(BlockPos restaurantCenter, double radius) {
+        return getNearbyPoints(restaurantCenter, radius, MarkType.TABLE);
+    }
+
+    public List<MarkedPoint> getNearbyQueueSpots(BlockPos restaurantCenter, double radius) {
+        return getNearbyPoints(restaurantCenter, radius, MarkType.QUEUE);
+    }
+
+    public List<MarkedPoint> getNearbyCounters(BlockPos restaurantCenter, double radius) {
+        return getNearbyPoints(restaurantCenter, radius, MarkType.COUNTER);
+    }
+
+    public List<MarkedPoint> getNearbyEntrances(BlockPos restaurantCenter, double radius) {
+        return getNearbyPoints(restaurantCenter, radius, MarkType.ENTRANCE);
+    }
+
+    public List<MarkedPoint> getNearbyExits(BlockPos restaurantCenter, double radius) {
+        return getNearbyPoints(restaurantCenter, radius, MarkType.EXIT);
+    }
+
+    private List<MarkedPoint> getNearbyPoints(BlockPos restaurantCenter, double radius, MarkType type) {
         double radiusSqr = radius * radius;
         return marks.values().stream()
-                .filter(point -> point.getType() == MarkType.SEAT)
+                .filter(point -> point.getType() == type)
                 .filter(point -> point.getPos().distSqr(restaurantCenter) <= radiusSqr)
                 .sorted(Comparator.comparingDouble(point -> point.getPos().distSqr(restaurantCenter)))
                 .toList();
@@ -108,11 +173,65 @@ public class SeatingMarkSavedData extends SavedData {
                 .findFirst();
     }
 
+    public Optional<MarkedPoint> findNearestAvailableQueueSpot(BlockPos center, double radius) {
+        return getNearbyQueueSpots(center, radius).stream()
+                .filter(point -> !isQueueSpotOccupied(point.getPos()))
+                .findFirst();
+    }
+
+    public Optional<MarkedPoint> findNearestAvailableCounter(BlockPos center, double radius) {
+        return getNearbyCounters(center, radius).stream()
+                .filter(point -> !isCounterOccupied(point.getPos()))
+                .findFirst();
+    }
+
+    public Optional<MarkedPoint> findNearestTable(BlockPos center, double radius) {
+        return getNearbyTables(center, radius).stream().findFirst();
+    }
+
+    public Optional<MarkedPoint> findNearestEntrance(BlockPos center, double radius) {
+        return getNearbyEntrances(center, radius).stream().findFirst();
+    }
+
+    public Optional<MarkedPoint> findNearestExit(BlockPos center, double radius) {
+        return getNearbyExits(center, radius).stream().findFirst();
+    }
+
+    public Optional<BlockPos> getLinkedTable(BlockPos seatPos) {
+        return Optional.ofNullable(seatTables.get(seatPos));
+    }
+
+    public void linkSeatToTable(BlockPos seatPos, BlockPos tablePos) {
+        if (!isSeat(seatPos) || !isTable(tablePos)) {
+            return;
+        }
+        seatTables.put(seatPos, tablePos.immutable());
+        setDirty();
+    }
+
     public boolean occupySeat(BlockPos pos, UUID entityId) {
         if (!isSeat(pos) || isSeatOccupied(pos)) {
             return false;
         }
         occupiedSeats.put(pos, entityId);
+        setDirty();
+        return true;
+    }
+
+    public boolean occupyQueueSpot(BlockPos pos, UUID entityId) {
+        if (!isQueue(pos) || isQueueSpotOccupied(pos)) {
+            return false;
+        }
+        occupiedQueueSpots.put(pos, entityId);
+        setDirty();
+        return true;
+    }
+
+    public boolean occupyCounter(BlockPos pos, UUID entityId) {
+        if (!isCounter(pos) || isCounterOccupied(pos)) {
+            return false;
+        }
+        occupiedCounters.put(pos, entityId);
         setDirty();
         return true;
     }
@@ -125,8 +244,56 @@ public class SeatingMarkSavedData extends SavedData {
         }
     }
 
+    public void releaseQueueSpot(BlockPos pos, UUID entityId) {
+        UUID occupant = occupiedQueueSpots.get(pos);
+        if (entityId.equals(occupant)) {
+            occupiedQueueSpots.remove(pos);
+            setDirty();
+        }
+    }
+
+    public void releaseCounter(BlockPos pos, UUID entityId) {
+        UUID occupant = occupiedCounters.get(pos);
+        if (entityId.equals(occupant)) {
+            occupiedCounters.remove(pos);
+            setDirty();
+        }
+    }
+
     public boolean isSeatOccupied(BlockPos pos) {
         return occupiedSeats.containsKey(pos);
+    }
+
+    public boolean isQueueSpotOccupied(BlockPos pos) {
+        return occupiedQueueSpots.containsKey(pos);
+    }
+
+    public boolean isCounterOccupied(BlockPos pos) {
+        return occupiedCounters.containsKey(pos);
+    }
+
+    public boolean isFrontOccupiedQueueSpot(BlockPos pos, BlockPos restaurantCenter, double radius) {
+        if (!isQueue(pos)) {
+            return false;
+        }
+        return getNearbyQueueSpots(restaurantCenter, radius).stream()
+                .filter(point -> occupiedQueueSpots.containsKey(point.getPos()))
+                .findFirst()
+                .map(point -> point.getPos().equals(pos))
+                .orElse(false);
+    }
+
+    public Optional<MarkedPoint> findEarlierAvailableQueueSpot(BlockPos currentPos, BlockPos restaurantCenter, double radius) {
+        List<MarkedPoint> queue = getNearbyQueueSpots(restaurantCenter, radius);
+        for (MarkedPoint point : queue) {
+            if (point.getPos().equals(currentPos)) {
+                return Optional.empty();
+            }
+            if (!isQueueSpotOccupied(point.getPos())) {
+                return Optional.of(point);
+            }
+        }
+        return Optional.empty();
     }
 
     @Override
@@ -140,9 +307,18 @@ public class SeatingMarkSavedData extends SavedData {
             tag.putDouble("x", point.getInteractionPosition().x);
             tag.putDouble("y", point.getInteractionPosition().y);
             tag.putDouble("z", point.getInteractionPosition().z);
-            UUID occupant = occupiedSeats.get(point.getPos());
-            if (occupant != null && point.getType() == MarkType.SEAT) {
+            UUID occupant = switch (point.getType()) {
+                case SEAT -> occupiedSeats.get(point.getPos());
+                case QUEUE -> occupiedQueueSpots.get(point.getPos());
+                case COUNTER -> occupiedCounters.get(point.getPos());
+                case TABLE, ENTRANCE, EXIT -> null;
+            };
+            if (occupant != null) {
                 tag.putUUID("occupiedBy", occupant);
+            }
+            BlockPos linkedTable = seatTables.get(point.getPos());
+            if (linkedTable != null && point.getType() == MarkType.SEAT) {
+                tag.put("tablePos", NbtUtils.writeBlockPos(linkedTable));
             }
             list.add(tag);
         }

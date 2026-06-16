@@ -9,8 +9,8 @@ import net.minecraft.world.InteractionResult;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.context.UseOnContext;
 
-public class SeatToolItem extends Item {
-    public SeatToolItem(Properties properties) {
+public class EntranceToolItem extends Item {
+    public EntranceToolItem(Properties properties) {
         super(properties);
     }
 
@@ -20,17 +20,17 @@ public class SeatToolItem extends Item {
             return InteractionResult.SUCCESS;
         }
 
-        if (SeatingMarkSavedData.get(level).isSeat(context.getClickedPos())) {
-            RestaurantSeatingApi.unmarkSeat(context.getClickedPos(), level);
+        if (SeatingMarkSavedData.get(level).isEntrance(context.getClickedPos())) {
+            RestaurantSeatingApi.unmarkEntrance(context.getClickedPos(), level);
             if (context.getPlayer() != null) {
-                context.getPlayer().displayClientMessage(Component.literal("Seat mark removed."), true);
+                context.getPlayer().displayClientMessage(Component.literal("Entrance mark removed."), true);
             }
         } else {
-            RestaurantSeatingApi.markSeat(context.getClickedPos(), level);
+            RestaurantSeatingApi.markEntrance(context.getClickedPos(), level);
             if (context.getPlayer() != null) {
-                context.getPlayer().displayClientMessage(Component.literal("Seat marked."), true);
+                context.getPlayer().displayClientMessage(Component.literal("Entrance marked."), true);
             }
-            level.sendParticles(ParticleTypes.HAPPY_VILLAGER, context.getClickedPos().getX() + 0.5,
+            level.sendParticles(ParticleTypes.END_ROD, context.getClickedPos().getX() + 0.5,
                     context.getClickedPos().getY() + 1.0, context.getClickedPos().getZ() + 0.5, 8,
                     0.25, 0.25, 0.25, 0.0);
         }

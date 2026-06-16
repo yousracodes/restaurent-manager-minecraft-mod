@@ -119,8 +119,7 @@ public class RestaurantManager extends SavedData {
             compound.putUUID("ownerUuid", restaurant.getOwnerUuid());
         }
         compound.putString("ownerName", restaurant.getOwnerName());
-        compound.putString("menuTitle", restaurant.getMenu().getTitle());
-        compound.put("menu", writeMenu(restaurant.getMenu()));
+        compound.put("menus", writeMenus(restaurant.getMenus()));
     }
 
     private static Restaurant restaurantFromCompound(CompoundTag compound) {
@@ -139,11 +138,23 @@ public class RestaurantManager extends SavedData {
                 compound.contains("name") ? compound.getString("name") : "Restaurant",
                 compound.hasUUID("ownerUuid") ? compound.getUUID("ownerUuid") : null,
                 compound.getString("ownerName"),
-                readMenu(compound.getString("menuTitle"), compound.getList("menu", Tag.TAG_COMPOUND))
+                readMenus(compound)
         );
     }
 
-    private static ListTag writeMenu(RestaurantMenu menu) {
+    private static ListTag writeMenus(List<RestaurantMenu> menus) {
+        ListTag list = new ListTag();
+        for (RestaurantMenu menu : menus) {
+            CompoundTag menuTag = new CompoundTag();
+            menuTag.putString("title", menu.getTitle());
+            menuTag.putString("category", menu.getCategory().name());
+            menuTag.put("items", writeMenuItems(menu));
+            list.add(menuTag);
+        }
+        return list;
+    }
+
+    private static ListTag writeMenuItems(RestaurantMenu menu) {
         ListTag list = new ListTag();
         for (ResourceLocation item : menu.getItems()) {
             CompoundTag itemTag = new CompoundTag();
@@ -153,7 +164,29 @@ public class RestaurantManager extends SavedData {
         return list;
     }
 
-    private static RestaurantMenu readMenu(String title, ListTag list) {
+    private static List<RestaurantMenu> readMenus(CompoundTag compound) {
+        List<RestaurantMenu> menus = new ArrayList<>();
+        if (compound.contains("menus", Tag.TAG_LIST)) {
+            ListTag menuList = compound.getList("menus", Tag.TAG_COMPOUND);
+            for (int i = 0; i < menuList.size(); i++) {
+                CompoundTag menuTag = menuList.getCompound(i);
+                menus.add(new RestaurantMenu(
+                        menuTag.getString("title"),
+                        MenuCategory.byName(menuTag.getString("category")),
+                        readMenuItems(menuTag.getList("items", Tag.TAG_COMPOUND))
+                ));
+            }
+        } else {
+            menus.add(new RestaurantMenu(
+                    compound.getString("menuTitle"),
+                    MenuCategory.MAIN_DISH,
+                    readMenuItems(compound.getList("menu", Tag.TAG_COMPOUND))
+            ));
+        }
+        return menus;
+    }
+
+    private static List<ResourceLocation> readMenuItems(ListTag list) {
         List<ResourceLocation> items = new ArrayList<>();
         for (int i = 0; i < list.size(); i++) {
             ResourceLocation id = ResourceLocation.tryParse(list.getCompound(i).getString("id"));
@@ -161,7 +194,7 @@ public class RestaurantManager extends SavedData {
                 items.add(id);
             }
         }
-        return new RestaurantMenu(title, items);
+        return items;
     }
 
     private static CompoundTag writeAabb(AABB bounds) {

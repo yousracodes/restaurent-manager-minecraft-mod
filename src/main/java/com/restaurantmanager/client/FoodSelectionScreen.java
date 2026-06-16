@@ -53,16 +53,13 @@ public class FoodSelectionScreen extends Screen {
         ItemStack hovered = ItemStack.EMPTY;
         if (player != null) {
             for (int slot = 0; slot < 36; slot++) {
-                int x = this.gridX + (slot % 9) * 20;
-                int y = this.gridY + (slot / 9) * 18;
+                int x = this.gridX + (slot % 9) * InventoryPanelRenderer.SLOT_STEP;
+                int y = this.gridY + (slot / 9) * InventoryPanelRenderer.SLOT_STEP;
                 ItemStack stack = player.getInventory().getItem(slot);
                 drawSlot(graphics, x, y, stack.isEdible());
-                if (!stack.isEmpty()) {
-                    graphics.renderItem(stack, x + 1, y + 1);
-                    graphics.renderItemDecorations(this.font, stack, x + 1, y + 1);
-                }
-                if (isInside(mouseX, mouseY, x, y, 18, 18)) {
-                    graphics.fill(x, y, x + 18, y + 18, 0x66FFFFFF);
+                InventoryPanelRenderer.drawStack(graphics, this.font, stack, x, y);
+                if (isInside(mouseX, mouseY, x, y, InventoryPanelRenderer.SLOT_SIZE, InventoryPanelRenderer.SLOT_SIZE)) {
+                    InventoryPanelRenderer.drawHover(graphics, x, y);
                     hovered = stack;
                 }
             }
@@ -84,9 +81,9 @@ public class FoodSelectionScreen extends Screen {
         Player player = Minecraft.getInstance().player;
         if (player != null) {
             for (int slot = 0; slot < 36; slot++) {
-                int x = this.gridX + (slot % 9) * 20;
-                int y = this.gridY + (slot / 9) * 18;
-                if (isInside(mouseX, mouseY, x, y, 18, 18)) {
+                int x = this.gridX + (slot % 9) * InventoryPanelRenderer.SLOT_STEP;
+                int y = this.gridY + (slot / 9) * InventoryPanelRenderer.SLOT_STEP;
+                if (isInside(mouseX, mouseY, x, y, InventoryPanelRenderer.SLOT_SIZE, InventoryPanelRenderer.SLOT_SIZE)) {
                     ItemStack stack = player.getInventory().getItem(slot);
                     if (!stack.isEmpty() && stack.isEdible()) {
                         Minecraft.getInstance().setScreen(new CustomerConversationScreen(customerId, customerName, stack));
@@ -99,9 +96,10 @@ public class FoodSelectionScreen extends Screen {
     }
 
     private void drawSlot(GuiGraphics graphics, int x, int y, boolean edible) {
-        graphics.fill(x, y, x + 18, y + 18, edible ? 0xFF6A8D46 : 0xFF565656);
-        graphics.fill(x + 1, y + 1, x + 17, y + 17, 0xFF8D8D8D);
-        graphics.fill(x + 2, y + 2, x + 16, y + 16, 0xFF303030);
+        if (x == this.gridX && y == this.gridY) {
+            InventoryPanelRenderer.drawPanel(graphics, this.gridX, this.gridY);
+        }
+        InventoryPanelRenderer.drawHighlight(graphics, x, y, edible);
     }
 
     private void drawButton(GuiGraphics graphics, int x, int y, int width, int height, String label, int color, int mouseX, int mouseY) {

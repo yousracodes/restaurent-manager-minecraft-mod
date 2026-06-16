@@ -1,16 +1,15 @@
 package com.restaurantmanager.client;
 
-import com.restaurantmanager.item.RestaurantMenuItem;
 import com.restaurantmanager.network.ModNetwork;
 import com.restaurantmanager.network.packet.RenameRestaurantPacket;
 import com.restaurantmanager.network.packet.ToggleRestaurantOpenPacket;
+import com.restaurantmanager.restaurant.MenuCategory;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
-import net.minecraft.world.item.ItemStack;
 
 public class RestaurantManagementScreen extends Screen {
     private static final ResourceLocation BACKGROUND = new ResourceLocation("restaurantmanager", "textures/gui/restaurant_management.png");
@@ -20,14 +19,15 @@ public class RestaurantManagementScreen extends Screen {
     private boolean open;
     private final String ownerName;
     private final int reputation;
+    private final int starRating;
     private final int customersServed;
     private final int ordersCompleted;
     private final int ordersFailed;
     private final int customersLost;
     private final int moneyEarned;
+    private final String[] menuTitles;
+    private final int[] menuItemCounts;
     private String restaurantName;
-    private String menuTitle;
-    private int menuItemCount;
     private EditBox nameBox;
     private int leftPos;
     private int topPos;
@@ -40,31 +40,34 @@ public class RestaurantManagementScreen extends Screen {
     private int buttonHeight;
 
     public RestaurantManagementScreen(BlockPos signPos, boolean open) {
-        this(signPos, open, "Restaurant", "", 0, 0, 0, 0, 0, 0, "", 0);
+        this(signPos, open, "Restaurant", "", 0, 1, 0, 0, 0, 0, 0, "", 0);
     }
 
-    public RestaurantManagementScreen(BlockPos signPos, boolean open, String name, String ownerName, int reputation,
+    public RestaurantManagementScreen(BlockPos signPos, boolean open, String name, String ownerName, int reputation, int starRating,
                                       int customersServed, int ordersCompleted, int ordersFailed,
                                       int customersLost, int moneyEarned, String menuTitle, int menuItemCount) {
+        this(signPos, open, name, ownerName, reputation, starRating, customersServed, ordersCompleted, ordersFailed,
+                customersLost, moneyEarned, menuTitle, menuItemCount, null, null);
+    }
+
+    public RestaurantManagementScreen(BlockPos signPos, boolean open, String name, String ownerName, int reputation, int starRating,
+                                      int customersServed, int ordersCompleted, int ordersFailed,
+                                      int customersLost, int moneyEarned, String menuTitle, int menuItemCount,
+                                      String[] menuTitles, int[] menuItemCounts) {
         super(Component.literal("Restaurant"));
         this.signPos = signPos;
         this.open = open;
         this.ownerName = ownerName == null || ownerName.isBlank() ? "Unknown" : ownerName;
         this.reputation = reputation;
+        this.starRating = starRating;
         this.customersServed = customersServed;
         this.ordersCompleted = ordersCompleted;
         this.ordersFailed = ordersFailed;
         this.customersLost = customersLost;
         this.moneyEarned = moneyEarned;
+        this.menuTitles = normalizeTitles(menuTitles);
+        this.menuItemCounts = normalizeCounts(menuItemCounts);
         this.restaurantName = name == null || name.isBlank() ? "Restaurant" : name;
-        this.menuTitle = menuTitle == null ? "" : menuTitle;
-        this.menuItemCount = menuItemCount;
-    }
-
-    public RestaurantManagementScreen withSelectedMenu(ItemStack menuStack) {
-        this.menuTitle = RestaurantMenuItem.getMenuTitle(menuStack);
-        this.menuItemCount = RestaurantMenuItem.getMenuItems(menuStack).size();
-        return this;
     }
 
     @Override
@@ -95,31 +98,21 @@ public class RestaurantManagementScreen extends Screen {
                 0.0F, 0.0F, TEXTURE_SIZE, TEXTURE_SIZE, TEXTURE_SIZE, TEXTURE_SIZE);
 
         this.nameBox.render(graphics, mouseX, mouseY, partialTick);
-        drawMenuPreview(graphics);
         drawStats(graphics);
-        drawButtonLabel(graphics, this.menuX, this.buttonY, this.buttonWidth, this.buttonHeight, "Menu", mouseX, mouseY);
+        drawButtonLabel(graphics, this.menuX, this.buttonY, this.buttonWidth, this.buttonHeight, "Menus", mouseX, mouseY);
         drawButtonLabel(graphics, this.toggleX, this.buttonY, this.buttonWidth, this.buttonHeight,
                 this.open ? "Close" : "Open", mouseX, mouseY);
         drawButtonLabel(graphics, this.closeX, this.buttonY, this.buttonWidth, this.buttonHeight, "Close", mouseX, mouseY);
-    }
-
-    private void drawMenuPreview(GuiGraphics graphics) {
-        String label;
-        if (menuTitle.isBlank() && menuItemCount <= 0) {
-            label = "No menu selected";
-        } else {
-            label = (menuTitle.isBlank() ? "Restaurant Menu" : menuTitle) + " (" + menuItemCount + ")";
-        }
-        drawCenteredLight(graphics, label, textureX(627), textureY(760));
     }
 
     private void drawStats(GuiGraphics graphics) {
         int centerX = textureX(627);
         int y = textureY(465);
         drawCenteredLight(graphics, "Owner: " + ownerName, centerX, y);
-        drawCenteredLight(graphics, "Served: " + customersServed + "   Rep: " + reputation, centerX, y + 12);
-        drawCenteredLight(graphics, "Orders: " + ordersCompleted + " OK / " + ordersFailed + " Failed", centerX, y + 24);
-        drawCenteredLight(graphics, "Lost: " + customersLost + "   Earned: " + moneyEarned, centerX, y + 36);
+        drawCenteredLight(graphics, "Stars: " + starRating + "/5   Rep: " + reputation, centerX, y + 12);
+        drawCenteredLight(graphics, "Served: " + customersServed + "   Earned: " + moneyEarned, centerX, y + 24);
+        drawCenteredLight(graphics, "Orders: " + ordersCompleted + " OK / " + ordersFailed + " Failed", centerX, y + 36);
+        drawCenteredLight(graphics, "Lost: " + customersLost, centerX, y + 48);
     }
 
     @Override
@@ -130,7 +123,7 @@ public class RestaurantManagementScreen extends Screen {
         }
         if (isInside(mouseX, mouseY, this.menuX, this.buttonY, this.buttonWidth, this.buttonHeight)) {
             saveName();
-            this.minecraft.setScreen(new RestaurantMenuItemSelectionScreen(this));
+            this.minecraft.setScreen(new RestaurantMenuManagerScreen(this, this.signPos, this.menuTitles, this.menuItemCounts));
             return true;
         }
         if (isInside(mouseX, mouseY, this.toggleX, this.buttonY, this.buttonWidth, this.buttonHeight)) {
@@ -171,6 +164,38 @@ public class RestaurantManagementScreen extends Screen {
 
     public BlockPos getSignPos() {
         return signPos;
+    }
+
+    public void setMenuSummary(MenuCategory category, String title, int itemCount) {
+        if (category == null) {
+            return;
+        }
+        this.menuTitles[category.ordinal()] = title == null ? "" : title;
+        this.menuItemCounts[category.ordinal()] = Math.max(0, itemCount);
+    }
+
+    public String[] copyMenuTitles() {
+        return this.menuTitles.clone();
+    }
+
+    public int[] copyMenuItemCounts() {
+        return this.menuItemCounts.clone();
+    }
+
+    private static String[] normalizeTitles(String[] titles) {
+        String[] normalized = new String[MenuCategory.values().length];
+        for (int i = 0; i < normalized.length; i++) {
+            normalized[i] = titles != null && i < titles.length && titles[i] != null ? titles[i] : "";
+        }
+        return normalized;
+    }
+
+    private static int[] normalizeCounts(int[] counts) {
+        int[] normalized = new int[MenuCategory.values().length];
+        for (int i = 0; i < normalized.length; i++) {
+            normalized[i] = counts != null && i < counts.length ? counts[i] : 0;
+        }
+        return normalized;
     }
 
     private int textureX(int textureX) {

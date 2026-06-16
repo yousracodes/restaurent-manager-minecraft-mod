@@ -1,5 +1,6 @@
 package com.restaurantmanager.client;
 
+import com.restaurantmanager.restaurant.MenuCategory;
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.BlockPos;
 import net.minecraft.resources.ResourceLocation;
@@ -13,15 +14,24 @@ public class ClientRestaurantScreens {
         Minecraft.getInstance().setScreen(new RestaurantManagementScreen(signPos, open));
     }
 
-    public static void openManagement(BlockPos signPos, boolean open, String name, String ownerName, int reputation,
+    public static void openManagement(BlockPos signPos, boolean open, String name, String ownerName, int reputation, int starRating,
                                       int customersServed, int ordersCompleted, int ordersFailed,
                                       int customersLost, int moneyEarned, String menuTitle, int menuItemCount) {
-        Minecraft.getInstance().setScreen(new RestaurantManagementScreen(signPos, open, name, ownerName, reputation,
-                customersServed, ordersCompleted, ordersFailed, customersLost, moneyEarned, menuTitle, menuItemCount));
+        openManagement(signPos, open, name, ownerName, reputation, starRating, customersServed, ordersCompleted, ordersFailed,
+                customersLost, moneyEarned, menuTitle, menuItemCount, null, null);
     }
 
-    public static void openMenu(BlockPos signPos, List<ResourceLocation> items) {
-        Minecraft.getInstance().setScreen(new RestaurantMenuScreen(signPos, items));
+    public static void openManagement(BlockPos signPos, boolean open, String name, String ownerName, int reputation, int starRating,
+                                      int customersServed, int ordersCompleted, int ordersFailed,
+                                      int customersLost, int moneyEarned, String menuTitle, int menuItemCount,
+                                      String[] menuTitles, int[] menuItemCounts) {
+        Minecraft.getInstance().setScreen(new RestaurantManagementScreen(signPos, open, name, ownerName, reputation, starRating,
+                customersServed, ordersCompleted, ordersFailed, customersLost, moneyEarned, menuTitle, menuItemCount,
+                menuTitles, menuItemCounts));
+    }
+
+    public static void openMenu(BlockPos signPos, MenuCategory category, List<ResourceLocation> items) {
+        Minecraft.getInstance().setScreen(new RestaurantMenuScreen(signPos, category, items));
     }
 
     public static void openMenuItemEditor(InteractionHand hand, ItemStack stack) {

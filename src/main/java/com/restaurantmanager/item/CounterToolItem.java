@@ -9,8 +9,8 @@ import net.minecraft.world.InteractionResult;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.context.UseOnContext;
 
-public class TableToolItem extends Item {
-    public TableToolItem(Properties properties) {
+public class CounterToolItem extends Item {
+    public CounterToolItem(Properties properties) {
         super(properties);
     }
 
@@ -20,18 +20,18 @@ public class TableToolItem extends Item {
             return InteractionResult.SUCCESS;
         }
 
-        if (SeatingMarkSavedData.get(level).isTable(context.getClickedPos())) {
-            RestaurantSeatingApi.unmarkTable(context.getClickedPos(), level);
+        if (SeatingMarkSavedData.get(level).isCounter(context.getClickedPos())) {
+            RestaurantSeatingApi.unmarkCounter(context.getClickedPos(), level);
             if (context.getPlayer() != null) {
-                context.getPlayer().displayClientMessage(Component.literal("Table anchor removed."), true);
+                context.getPlayer().displayClientMessage(Component.literal("Counter spot removed."), true);
             }
         } else {
-            RestaurantSeatingApi.markTable(context.getClickedPos(), level);
+            RestaurantSeatingApi.markCounter(context.getClickedPos(), level);
             if (context.getPlayer() != null) {
-                context.getPlayer().displayClientMessage(Component.literal("Table anchor marked."), true);
+                context.getPlayer().displayClientMessage(Component.literal("Counter spot marked."), true);
             }
-            level.sendParticles(ParticleTypes.ENCHANT, context.getClickedPos().getX() + 0.5,
-                    context.getClickedPos().getY() + 1.0, context.getClickedPos().getZ() + 0.5, 12,
+            level.sendParticles(ParticleTypes.WAX_ON, context.getClickedPos().getX() + 0.5,
+                    context.getClickedPos().getY() + 1.0, context.getClickedPos().getZ() + 0.5, 10,
                     0.25, 0.25, 0.25, 0.0);
         }
         return InteractionResult.CONSUME;

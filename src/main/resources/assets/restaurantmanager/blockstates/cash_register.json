@@ -1,0 +1,8 @@
+{
+  "variants": {
+    "facing=north": { "model": "restaurantmanager:block/cash_register" },
+    "facing=south": { "model": "restaurantmanager:block/cash_register", "y": 180 },
+    "facing=west": { "model": "restaurantmanager:block/cash_register", "y": 270 },
+    "facing=east": { "model": "restaurantmanager:block/cash_register", "y": 90 }
+  }
+}

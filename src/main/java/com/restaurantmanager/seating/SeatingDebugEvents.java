@@ -40,6 +40,6 @@ public class SeatingDebugEvents {
     }
 
     private boolean isHoldingMarkTool(ItemStack stack) {
-        return stack.is(ModItems.SEAT_TOOL.get()) || stack.is(ModItems.TABLE_TOOL.get());
+        return stack.is(ModItems.TABLE_LINK_TOOL.get());
     }
 }

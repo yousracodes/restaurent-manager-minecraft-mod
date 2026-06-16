@@ -1,7 +1,11 @@
 {
   "creativetab.restaurantmanager.restaurant_manager": "Restaurant Manager",
   "block.restaurantmanager.restaurant_sign": "Restaurant Sign",
+  "block.restaurantmanager.plate": "Plate",
+  "block.restaurantmanager.cash_register": "Cash Register",
   "item.restaurantmanager.restaurant_menu": "Restaurant Menu",
-  "item.restaurantmanager.seat_tool": "Seat Tool",
-  "item.restaurantmanager.table_tool": "Table Tool"
+  "item.restaurantmanager.entrance_tool": "Entrance Tool",
+  "item.restaurantmanager.exit_tool": "Exit Tool",
+  "item.restaurantmanager.table_link_tool": "Chair/Table Link Tool",
+  "item.restaurantmanager.takeout_package": "Takeout Package"
 }

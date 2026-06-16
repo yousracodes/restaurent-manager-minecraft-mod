@@ -2,11 +2,11 @@ package com.restaurantmanager.block;
 
 import com.restaurantmanager.restaurant.Restaurant;
 import com.restaurantmanager.restaurant.RestaurantDetector;
+import com.restaurantmanager.restaurant.RestaurantMenu;
 import com.restaurantmanager.restaurant.RestaurantManager;
 import com.restaurantmanager.item.RestaurantMenuItem;
 import com.restaurantmanager.network.ModNetwork;
 import com.restaurantmanager.network.packet.OpenRestaurantManagementPacket;
-import com.restaurantmanager.setup.ModEntities;
 import com.restaurantmanager.setup.ModItems;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
@@ -14,7 +14,6 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.entity.LivingEntity;
-import net.minecraft.world.entity.MobSpawnType;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.player.Player;
@@ -70,6 +69,9 @@ public class RestaurantSignBlock extends Block implements EntityBlock {
                 Restaurant value = savedRestaurant.orElse(detectedRestaurant);
                 if (savedRestaurant.isPresent()) {
                     value.updateAnchor(pos, detectedRestaurant.getBounds());
+                    if (!player.getUUID().equals(value.getOwnerUuid())) {
+                        value.setIdentity(value.getName(), player.getUUID(), player.getName().getString());
+                    }
                     manager.setDirty();
                 } else {
                     manager.addRestaurant(value);
@@ -80,7 +82,6 @@ public class RestaurantSignBlock extends Block implements EntityBlock {
                     manager.setDirty();
                 }
                 player.sendSystemMessage(Component.literal(createDetectionMessage(value)));
-                spawnTestCustomer(serverLevel, value);
             } else {
                 getRestaurantId(stack).ifPresent(id -> setSignRestaurantId(level, pos, id));
                 player.sendSystemMessage(Component.literal("No restaurant detected. Place the sign facing away from a closed room with at least a 3x3x3 air interior behind it."));
@@ -103,11 +104,15 @@ public class RestaurantSignBlock extends Block implements EntityBlock {
                 Optional<Restaurant> restaurant = manager.findBySignPos(pos);
                 if (restaurant.isPresent()) {
                     Restaurant value = restaurant.get();
-                    value.getMenu().setTitle(RestaurantMenuItem.getMenuTitle(held));
-                    value.getMenu().replaceItems(RestaurantMenuItem.getMenuItems(held));
+                    RestaurantMenu menu = new RestaurantMenu(
+                            RestaurantMenuItem.getMenuTitle(held),
+                            RestaurantMenuItem.getMenuCategory(held),
+                            RestaurantMenuItem.getMenuItems(held)
+                    );
+                    value.addOrReplaceMenu(menu);
                     manager.setDirty();
                     serverPlayer.sendSystemMessage(Component.literal("Restaurant menu applied: "
-                            + value.getMenu().getItems().size() + " item(s)."));
+                            + menu.getCategory().getDisplayName() + " with " + menu.getItems().size() + " item(s)."));
                 } else {
                     serverPlayer.sendSystemMessage(Component.literal("No registered restaurant found for this sign."));
                 }
@@ -175,20 +180,6 @@ public class RestaurantSignBlock extends Block implements EntityBlock {
                 + ".";
     }
 
-    private static void spawnTestCustomer(ServerLevel level, Restaurant restaurant) {
-        if (!restaurant.isOpen()) {
-            return;
-        }
-        BlockPos signPos = restaurant.getSignPos();
-        BlockState signState = level.getBlockState(signPos);
-        Direction facing = signState.hasProperty(FACING) ? signState.getValue(FACING) : Direction.NORTH;
-        ModEntities.CUSTOMER.get().spawn(
-                level,
-                signPos.relative(facing).above(),
-                MobSpawnType.TRIGGERED
-        );
-    }
-
     private static Optional<UUID> getRestaurantId(ItemStack stack) {
         if (!stack.hasTag() || !stack.getTag().hasUUID(RestaurantSignBlockEntity.RESTAURANT_ID_KEY)) {
             return Optional.empty();
@@ -210,7 +201,7 @@ public class RestaurantSignBlock extends Block implements EntityBlock {
         }
     }
 
-    private static Optional<Restaurant> getAnchoredRestaurant(Level level, BlockPos pos) {
+    public static Optional<Restaurant> getAnchoredRestaurant(Level level, BlockPos pos) {
         if (!(level instanceof ServerLevel serverLevel)) {
             return Optional.empty();
         }

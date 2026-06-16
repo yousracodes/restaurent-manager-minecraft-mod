@@ -2,5 +2,9 @@ package com.restaurantmanager.seating;
 
 public enum MarkType {
     SEAT,
-    TABLE
+    TABLE,
+    QUEUE,
+    COUNTER,
+    ENTRANCE,
+    EXIT
 }

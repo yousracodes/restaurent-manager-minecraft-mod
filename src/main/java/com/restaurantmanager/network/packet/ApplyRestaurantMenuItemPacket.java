@@ -1,7 +1,9 @@
 package com.restaurantmanager.network.packet;
 
 import com.restaurantmanager.item.RestaurantMenuItem;
+import com.restaurantmanager.restaurant.MenuCategory;
 import com.restaurantmanager.restaurant.Restaurant;
+import com.restaurantmanager.restaurant.RestaurantMenu;
 import com.restaurantmanager.restaurant.RestaurantManager;
 import com.restaurantmanager.setup.ModItems;
 import net.minecraft.core.BlockPos;
@@ -17,19 +19,32 @@ import java.util.function.Supplier;
 public class ApplyRestaurantMenuItemPacket {
     private final BlockPos signPos;
     private final int slot;
+    private final MenuCategory category;
 
     public ApplyRestaurantMenuItemPacket(BlockPos signPos, int slot) {
+        this(signPos, slot, null);
+    }
+
+    public ApplyRestaurantMenuItemPacket(BlockPos signPos, int slot, MenuCategory category) {
         this.signPos = signPos;
         this.slot = slot;
+        this.category = category;
     }
 
     public static void encode(ApplyRestaurantMenuItemPacket packet, FriendlyByteBuf buffer) {
         buffer.writeBlockPos(packet.signPos);
         buffer.writeInt(packet.slot);
+        buffer.writeBoolean(packet.category != null);
+        if (packet.category != null) {
+            buffer.writeEnum(packet.category);
+        }
     }
 
     public static ApplyRestaurantMenuItemPacket decode(FriendlyByteBuf buffer) {
-        return new ApplyRestaurantMenuItemPacket(buffer.readBlockPos(), buffer.readInt());
+        BlockPos signPos = buffer.readBlockPos();
+        int slot = buffer.readInt();
+        MenuCategory category = buffer.readBoolean() ? buffer.readEnum(MenuCategory.class) : null;
+        return new ApplyRestaurantMenuItemPacket(signPos, slot, category);
     }
 
     public static void handle(ApplyRestaurantMenuItemPacket packet, Supplier<NetworkEvent.Context> contextSupplier) {
@@ -50,6 +65,12 @@ public class ApplyRestaurantMenuItemPacket {
             if (!stack.is(ModItems.RESTAURANT_MENU.get())) {
                 return;
             }
+            MenuCategory stackCategory = RestaurantMenuItem.getMenuCategory(stack);
+            if (packet.category != null && stackCategory != packet.category) {
+                player.sendSystemMessage(Component.literal("That menu belongs in the "
+                        + stackCategory.getDisplayName() + " slot."));
+                return;
+            }
 
             RestaurantManager manager = RestaurantManager.get(level);
             Restaurant restaurant = manager.findBySignPos(packet.signPos).orElse(null);
@@ -57,11 +78,15 @@ public class ApplyRestaurantMenuItemPacket {
                 return;
             }
 
-            restaurant.getMenu().setTitle(RestaurantMenuItem.getMenuTitle(stack));
-            restaurant.getMenu().replaceItems(RestaurantMenuItem.getMenuItems(stack));
+            RestaurantMenu menu = new RestaurantMenu(
+                    RestaurantMenuItem.getMenuTitle(stack),
+                    RestaurantMenuItem.getMenuCategory(stack),
+                    RestaurantMenuItem.getMenuItems(stack)
+            );
+            restaurant.addOrReplaceMenu(menu);
             manager.setDirty();
             player.sendSystemMessage(Component.literal("Restaurant menu applied: "
-                    + restaurant.getMenu().getItems().size() + " item(s)."));
+                    + menu.getCategory().getDisplayName() + " with " + menu.getItems().size() + " item(s)."));
         });
         context.setPacketHandled(true);
     }

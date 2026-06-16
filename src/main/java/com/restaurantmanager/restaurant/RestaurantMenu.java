@@ -9,6 +9,7 @@ import java.util.List;
 public class RestaurantMenu {
     private final List<ResourceLocation> items = new ArrayList<>();
     private String title = "";
+    private MenuCategory category = MenuCategory.MAIN_DISH;
 
     public RestaurantMenu() {
     }
@@ -24,12 +25,25 @@ public class RestaurantMenu {
         this.title = title == null ? "" : title;
     }
 
+    public RestaurantMenu(String title, MenuCategory category, List<ResourceLocation> items) {
+        this(title, items);
+        this.category = category == null ? MenuCategory.MAIN_DISH : category;
+    }
+
     public String getTitle() {
         return title;
     }
 
     public void setTitle(String title) {
         this.title = title == null ? "" : title;
+    }
+
+    public MenuCategory getCategory() {
+        return category;
+    }
+
+    public void setCategory(MenuCategory category) {
+        this.category = category == null ? MenuCategory.MAIN_DISH : category;
     }
 
     public List<ResourceLocation> getItems() {

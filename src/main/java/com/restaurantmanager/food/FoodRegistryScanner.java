@@ -54,7 +54,7 @@ public class FoodRegistryScanner {
     public static FoodRequest createRequest(Item item) {
         ItemStack stack = new ItemStack(item);
         int reward = calculateReward(stack);
-        String description = "I'm craving " + stack.getHoverName().getString() + ".";
+        String description = stack.getHoverName().getString();
         return new FoodRequest(item, reward, description);
     }
 

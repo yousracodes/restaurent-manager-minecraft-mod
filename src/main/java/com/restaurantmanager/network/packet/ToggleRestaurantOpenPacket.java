@@ -1,12 +1,15 @@
 package com.restaurantmanager.network.packet;
 
+import com.restaurantmanager.entity.CustomerEntity;
 import com.restaurantmanager.restaurant.Restaurant;
 import com.restaurantmanager.restaurant.RestaurantManager;
+import com.restaurantmanager.setup.ModEntities;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.phys.AABB;
 import net.minecraftforge.network.NetworkEvent;
 
 import java.util.Optional;
@@ -50,10 +53,25 @@ public class ToggleRestaurantOpenPacket {
 
             Restaurant value = restaurant.get();
             value.setOpen(packet.open);
+            int leavingCustomers = packet.open ? 0 : makeAssignedCustomersLeave(level, value);
             manager.setDirty();
             player.sendSystemMessage(Component.literal("\"" + value.getName() + "\" restaurant is "
-                    + (packet.open ? "opened." : "closed.")));
+                    + (packet.open ? "opened." : "closed. " + leavingCustomers + " customer(s) leaving.")));
         });
         context.setPacketHandled(true);
+    }
+
+    private static int makeAssignedCustomersLeave(ServerLevel level, Restaurant restaurant) {
+        AABB searchBounds = restaurant.getBounds().inflate(128.0);
+        int count = 0;
+        for (CustomerEntity customer : level.getEntities(
+                ModEntities.CUSTOMER.get(),
+                searchBounds,
+                customer -> restaurant.getId().equals(customer.getRestaurantId())
+        )) {
+            customer.leaveBecauseRestaurantClosed();
+            count++;
+        }
+        return count;
     }
 }

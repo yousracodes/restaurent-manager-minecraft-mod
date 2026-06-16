@@ -3,6 +3,7 @@ package com.restaurantmanager.client;
 import com.restaurantmanager.item.RestaurantMenuItem;
 import com.restaurantmanager.network.ModNetwork;
 import com.restaurantmanager.network.packet.SaveMenuItemPacket;
+import com.restaurantmanager.restaurant.MenuCategory;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.EditBox;
@@ -20,12 +21,14 @@ import java.util.List;
 
 public class MenuItemEditorScreen extends Screen {
     private static final ResourceLocation BACKGROUND = new ResourceLocation("restaurantmanager", "textures/gui/restaurant_menu_editor.png");
-    private static final int TEXTURE_SIZE = 1024;
+    private static final int TEXTURE_SIZE = 1254;
     private static final int LIGHT_TEXT_COLOR = 0xFFF2D2;
     private static final int TEXT_SHADOW_COLOR = 0x6B3F1D;
+    private static final int DARK_TEXT_COLOR = 0x2B2118;
 
     private final InteractionHand hand;
     private final List<ResourceLocation> menuItems = new ArrayList<>();
+    private MenuCategory category;
     private EditBox titleBox;
     private int leftPos;
     private int topPos;
@@ -38,6 +41,15 @@ public class MenuItemEditorScreen extends Screen {
     private int saveY;
     private int closeX;
     private int closeY;
+    private int categoryX;
+    private int categoryY;
+    private int categoryWidth;
+    private int categoryHeight;
+    private int categoryLeftX;
+    private int categoryRightX;
+    private int categoryArrowY;
+    private int categoryArrowSize;
+    private int titleCenterX;
     private int buttonWidth;
     private int buttonHeight;
     private int scrollOffset;
@@ -49,6 +61,7 @@ public class MenuItemEditorScreen extends Screen {
         super(Component.literal("Restaurant Menu"));
         this.hand = hand;
         this.menuItems.addAll(RestaurantMenuItem.getMenuItems(stack));
+        this.category = RestaurantMenuItem.getMenuCategory(stack);
     }
 
     @Override
@@ -57,7 +70,7 @@ public class MenuItemEditorScreen extends Screen {
         this.leftPos = (this.width - this.guiSize) / 2;
         this.topPos = Math.max(8, (this.height - this.guiSize - 78) / 2);
 
-        this.titleBox = new EditBox(this.font, textureX(160), textureY(126), textureWidth(700), 18, Component.literal("Menu Title"));
+        this.titleBox = new EditBox(this.font, textureX(200), textureY(158), textureWidth(860), 18, Component.literal("Menu Title"));
         ItemStack stack = Minecraft.getInstance().player == null ? ItemStack.EMPTY : Minecraft.getInstance().player.getItemInHand(this.hand);
         this.titleBox.setValue(RestaurantMenuItem.getMenuTitle(stack));
         this.titleBox.setMaxLength(32);
@@ -65,20 +78,29 @@ public class MenuItemEditorScreen extends Screen {
         this.titleBox.setTextColor(LIGHT_TEXT_COLOR);
         this.titleBox.setTextColorUneditable(LIGHT_TEXT_COLOR);
         this.addRenderableWidget(this.titleBox);
+        this.titleCenterX = textureX(627);
 
-        this.listX = textureX(155);
-        this.listY = textureY(270);
-        this.saveX = textureX(158);
-        this.saveY = textureY(836);
-        this.closeX = textureX(525);
-        this.closeY = textureY(836);
-        this.buttonWidth = textureWidth(330);
-        this.buttonHeight = textureHeight(78);
-        this.gridX = this.leftPos + (this.guiSize - 180) / 2;
+        this.listX = textureX(165);
+        this.listY = textureY(420);
+        this.saveX = textureX(196);
+        this.saveY = textureY(1018);
+        this.closeX = textureX(646);
+        this.closeY = textureY(1018);
+        this.categoryX = textureX(160);
+        this.categoryY = textureY(294);
+        this.categoryWidth = textureWidth(960);
+        this.categoryHeight = textureHeight(66);
+        this.categoryArrowSize = Math.max(18, textureWidth(54));
+        this.categoryLeftX = this.categoryX + textureWidth(24);
+        this.categoryRightX = this.categoryX + this.categoryWidth - this.categoryArrowSize - textureWidth(24);
+        this.categoryArrowY = this.categoryY + (this.categoryHeight - this.categoryArrowSize) / 2;
+        this.buttonWidth = textureWidth(420);
+        this.buttonHeight = textureHeight(96);
+        this.gridX = this.leftPos + (this.guiSize - 162) / 2;
         this.gridY = this.topPos + this.guiSize + 8;
         this.rowHeight = 17;
-        this.visibleRows = 5;
-        this.itemNameWidth = textureWidth(560);
+        this.visibleRows = 4;
+        this.itemNameWidth = textureWidth(760);
         this.scrollOffset = Math.min(this.scrollOffset, getMaxScroll());
     }
 
@@ -90,10 +112,19 @@ public class MenuItemEditorScreen extends Screen {
 
         drawTitleShadow(graphics);
         drawMenuItems(graphics, mouseX, mouseY);
+        drawCategory(graphics, mouseX, mouseY);
         drawButtonLabel(graphics, this.saveX, this.saveY, this.buttonWidth, this.buttonHeight, "Save", mouseX, mouseY);
         drawButtonLabel(graphics, this.closeX, this.closeY, this.buttonWidth, this.buttonHeight, "Close", mouseX, mouseY);
+        centerTitleBox();
         this.titleBox.render(graphics, mouseX, mouseY, partialTick);
         drawInventory(graphics, mouseX, mouseY);
+    }
+
+    private void drawCategory(GuiGraphics graphics, int mouseX, int mouseY) {
+        drawArrowButton(graphics, this.categoryLeftX, this.categoryArrowY, "<", mouseX, mouseY);
+        drawArrowButton(graphics, this.categoryRightX, this.categoryArrowY, ">", mouseX, mouseY);
+        drawCenteredDark(graphics, this.category.getDisplayName(),
+                this.categoryX + this.categoryWidth / 2, this.categoryY + this.categoryHeight / 2 - 4);
     }
 
     private void drawMenuItems(GuiGraphics graphics, int mouseX, int mouseY) {
@@ -133,16 +164,13 @@ public class MenuItemEditorScreen extends Screen {
             return;
         }
         for (int slot = 0; slot < 36; slot++) {
-            int x = this.gridX + (slot % 9) * 20;
-            int y = this.gridY + (slot / 9) * 18;
+            int x = this.gridX + (slot % 9) * InventoryPanelRenderer.SLOT_STEP;
+            int y = this.gridY + (slot / 9) * InventoryPanelRenderer.SLOT_STEP;
             ItemStack stack = player.getInventory().getItem(slot);
             drawSlot(graphics, x, y, !stack.isEmpty() && stack.isEdible());
-            if (!stack.isEmpty()) {
-                graphics.renderItem(stack, x + 1, y + 1);
-                graphics.renderItemDecorations(this.font, stack, x + 1, y + 1);
-            }
-            if (isInside(mouseX, mouseY, x, y, 18, 18)) {
-                graphics.fill(x, y, x + 18, y + 18, 0x66FFFFFF);
+            InventoryPanelRenderer.drawStack(graphics, this.font, stack, x, y);
+            if (isInside(mouseX, mouseY, x, y, InventoryPanelRenderer.SLOT_SIZE, InventoryPanelRenderer.SLOT_SIZE)) {
+                InventoryPanelRenderer.drawHover(graphics, x, y);
                 hovered = stack;
             }
         }
@@ -153,13 +181,21 @@ public class MenuItemEditorScreen extends Screen {
 
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
-        if (button == 1 && isInside(mouseX, mouseY, textureX(145), textureY(105), textureWidth(750), textureHeight(95))) {
+        if (button == 1 && isInside(mouseX, mouseY, textureX(190), textureY(132), textureWidth(880), textureHeight(120))) {
             this.titleBox.setFocused(true);
             return true;
         }
         if (isInside(mouseX, mouseY, this.saveX, this.saveY, this.buttonWidth, this.buttonHeight)) {
             saveMenu();
             this.onClose();
+            return true;
+        }
+        if (isInside(mouseX, mouseY, this.categoryLeftX, this.categoryArrowY, this.categoryArrowSize, this.categoryArrowSize)) {
+            cycleCategory(-1);
+            return true;
+        }
+        if (isInside(mouseX, mouseY, this.categoryRightX, this.categoryArrowY, this.categoryArrowSize, this.categoryArrowSize)) {
+            cycleCategory(1);
             return true;
         }
         if (isInside(mouseX, mouseY, this.closeX, this.closeY, this.buttonWidth, this.buttonHeight)) {
@@ -182,9 +218,9 @@ public class MenuItemEditorScreen extends Screen {
         Player player = Minecraft.getInstance().player;
         if (player != null) {
             for (int slot = 0; slot < 36; slot++) {
-                int x = this.gridX + (slot % 9) * 20;
-                int y = this.gridY + (slot / 9) * 18;
-                if (isInside(mouseX, mouseY, x, y, 18, 18)) {
+                int x = this.gridX + (slot % 9) * InventoryPanelRenderer.SLOT_STEP;
+                int y = this.gridY + (slot / 9) * InventoryPanelRenderer.SLOT_STEP;
+                if (isInside(mouseX, mouseY, x, y, InventoryPanelRenderer.SLOT_SIZE, InventoryPanelRenderer.SLOT_SIZE)) {
                     ItemStack stack = player.getInventory().getItem(slot);
                     ResourceLocation id = stack.isEmpty() ? null : ForgeRegistries.ITEMS.getKey(stack.getItem());
                     if (id != null && stack.isEdible() && !menuItems.contains(id)) {
@@ -216,13 +252,23 @@ public class MenuItemEditorScreen extends Screen {
     }
 
     private void saveMenu() {
-        ModNetwork.CHANNEL.sendToServer(new SaveMenuItemPacket(this.hand, this.titleBox.getValue(), this.menuItems));
+        ModNetwork.CHANNEL.sendToServer(new SaveMenuItemPacket(this.hand, this.titleBox.getValue(), this.category, this.menuItems));
+    }
+
+    private void cycleCategory(int direction) {
+        MenuCategory[] categories = MenuCategory.values();
+        int index = (this.category.ordinal() + direction) % categories.length;
+        if (index < 0) {
+            index += categories.length;
+        }
+        this.category = categories[index];
     }
 
     private void drawSlot(GuiGraphics graphics, int x, int y, boolean edible) {
-        graphics.fill(x, y, x + 18, y + 18, edible ? 0xFF6A8D46 : 0xFF565656);
-        graphics.fill(x + 1, y + 1, x + 17, y + 17, 0xFF8D8D8D);
-        graphics.fill(x + 2, y + 2, x + 16, y + 16, 0xFF303030);
+        if (x == this.gridX && y == this.gridY) {
+            InventoryPanelRenderer.drawPanel(graphics, this.gridX, this.gridY);
+        }
+        InventoryPanelRenderer.drawHighlight(graphics, x, y, edible);
     }
 
     private void drawButtonLabel(GuiGraphics graphics, int x, int y, int width, int height, String label, int mouseX, int mouseY) {
@@ -230,6 +276,13 @@ public class MenuItemEditorScreen extends Screen {
             graphics.fill(x + 4, y + 4, x + width - 4, y + height - 4, 0x22FFFFFF);
         }
         drawCenteredLight(graphics, label, x + width / 2, y + height / 2 - 4);
+    }
+
+    private void drawArrowButton(GuiGraphics graphics, int x, int y, String label, int mouseX, int mouseY) {
+        if (isInside(mouseX, mouseY, x, y, this.categoryArrowSize, this.categoryArrowSize)) {
+            graphics.fill(x, y, x + this.categoryArrowSize, y + this.categoryArrowSize, 0x22FFFFFF);
+        }
+        drawCenteredDark(graphics, label, x + this.categoryArrowSize / 2, y + this.categoryArrowSize / 2 - 4);
     }
 
     private void drawWrappedItemName(GuiGraphics graphics, Component name, int x, int y, int width, int visibleRow) {
@@ -254,8 +307,18 @@ public class MenuItemEditorScreen extends Screen {
         }
     }
 
+    private void centerTitleBox() {
+        String title = this.titleBox.getValue();
+        int textWidth = this.font.width(title.isEmpty() ? " " : title);
+        this.titleBox.setX(this.titleCenterX - textWidth / 2);
+    }
+
     private void drawCenteredLight(GuiGraphics graphics, String text, int centerX, int y) {
         drawLightString(graphics, text, centerX - this.font.width(text) / 2, y);
+    }
+
+    private void drawCenteredDark(GuiGraphics graphics, String text, int centerX, int y) {
+        graphics.drawString(this.font, Component.literal(text), centerX - this.font.width(text) / 2, y, DARK_TEXT_COLOR, false);
     }
 
     private void drawLightString(GuiGraphics graphics, String text, int x, int y) {

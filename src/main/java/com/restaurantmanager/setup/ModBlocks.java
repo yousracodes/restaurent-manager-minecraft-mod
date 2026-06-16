@@ -1,6 +1,8 @@
 package com.restaurantmanager.setup;
 
+import com.restaurantmanager.block.CashRegisterBlock;
 import com.restaurantmanager.block.RestaurantSignBlock;
+import com.restaurantmanager.block.PlateBlock;
 import com.restaurantmanager.RestaurantManagerMod;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockBehaviour;
@@ -13,5 +15,13 @@ public class ModBlocks {
 
     public static final RegistryObject<Block> RESTAURANT_SIGN = BLOCKS.register("restaurant_sign", () ->
             new RestaurantSignBlock(BlockBehaviour.Properties.of().strength(2.0F).noOcclusion())
+    );
+
+    public static final RegistryObject<Block> PLATE = BLOCKS.register("plate", () ->
+            new PlateBlock(BlockBehaviour.Properties.of().strength(0.3F).noOcclusion())
+    );
+
+    public static final RegistryObject<Block> CASH_REGISTER = BLOCKS.register("cash_register", () ->
+            new CashRegisterBlock(BlockBehaviour.Properties.of().strength(1.5F).noOcclusion())
     );
 }

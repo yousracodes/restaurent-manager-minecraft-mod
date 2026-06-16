@@ -1,6 +1,7 @@
 package com.restaurantmanager.network.packet;
 
 import com.restaurantmanager.restaurant.Restaurant;
+import com.restaurantmanager.restaurant.MenuCategory;
 import com.restaurantmanager.restaurant.RestaurantManager;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.FriendlyByteBuf;
@@ -22,23 +23,31 @@ public class UpdateRestaurantMenuPacket {
     }
 
     private final BlockPos signPos;
+    private final MenuCategory category;
     private final ResourceLocation itemId;
     private final Action action;
 
     public UpdateRestaurantMenuPacket(BlockPos signPos, ResourceLocation itemId, Action action) {
+        this(signPos, MenuCategory.MAIN_DISH, itemId, action);
+    }
+
+    public UpdateRestaurantMenuPacket(BlockPos signPos, MenuCategory category, ResourceLocation itemId, Action action) {
         this.signPos = signPos;
+        this.category = category == null ? MenuCategory.MAIN_DISH : category;
         this.itemId = itemId;
         this.action = action;
     }
 
     public static void encode(UpdateRestaurantMenuPacket packet, FriendlyByteBuf buffer) {
         buffer.writeBlockPos(packet.signPos);
+        buffer.writeEnum(packet.category);
         buffer.writeResourceLocation(packet.itemId);
         buffer.writeEnum(packet.action);
     }
 
     public static UpdateRestaurantMenuPacket decode(FriendlyByteBuf buffer) {
-        return new UpdateRestaurantMenuPacket(buffer.readBlockPos(), buffer.readResourceLocation(), buffer.readEnum(Action.class));
+        return new UpdateRestaurantMenuPacket(buffer.readBlockPos(), buffer.readEnum(MenuCategory.class),
+                buffer.readResourceLocation(), buffer.readEnum(Action.class));
     }
 
     public static void handle(UpdateRestaurantMenuPacket packet, Supplier<NetworkEvent.Context> contextSupplier) {
@@ -64,9 +73,9 @@ public class UpdateRestaurantMenuPacket {
                     player.sendSystemMessage(Component.literal("Only edible items can be added to the menu."));
                     return;
                 }
-                restaurant.getMenu().addItem(packet.itemId);
+                restaurant.getOrCreateMenu(packet.category).addItem(packet.itemId);
             } else {
-                restaurant.getMenu().removeItem(packet.itemId);
+                restaurant.getOrCreateMenu(packet.category).removeItem(packet.itemId);
             }
 
             RestaurantManager.get(level).setDirty();

@@ -1,6 +1,7 @@
 package com.restaurantmanager.setup;
 
 import com.restaurantmanager.RestaurantManagerMod;
+import com.restaurantmanager.block.PlateBlockEntity;
 import com.restaurantmanager.block.RestaurantSignBlockEntity;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraftforge.registries.DeferredRegister;
@@ -14,5 +15,10 @@ public class ModBlockEntities {
     public static final RegistryObject<BlockEntityType<RestaurantSignBlockEntity>> RESTAURANT_SIGN =
             BLOCK_ENTITIES.register("restaurant_sign", () ->
                     BlockEntityType.Builder.of(RestaurantSignBlockEntity::new, ModBlocks.RESTAURANT_SIGN.get()).build(null)
+            );
+
+    public static final RegistryObject<BlockEntityType<PlateBlockEntity>> PLATE =
+            BLOCK_ENTITIES.register("plate", () ->
+                    BlockEntityType.Builder.of(PlateBlockEntity::new, ModBlocks.PLATE.get()).build(null)
             );
 }

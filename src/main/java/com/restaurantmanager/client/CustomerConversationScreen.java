@@ -1,23 +1,47 @@
 package com.restaurantmanager.client;
 
 import com.restaurantmanager.entity.CustomerEntity;
+import com.restaurantmanager.item.TakeoutPackageItem;
 import com.restaurantmanager.network.ModNetwork;
 import com.restaurantmanager.network.packet.ServeCustomerPacket;
+import com.restaurantmanager.setup.ModItems;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraftforge.registries.ForgeRegistries;
 
+import java.util.ArrayList;
+import java.util.List;
+
 public class CustomerConversationScreen extends Screen {
     private static final ResourceLocation BACKGROUND = new ResourceLocation("restaurantmanager", "textures/gui/customer_conversation.png");
+    private static final ResourceLocation TAKEOUT_BACKGROUND = new ResourceLocation("restaurantmanager", "textures/gui/takeout_customer.png");
     private static final int TEXTURE_WIDTH = 1402;
     private static final int TEXTURE_HEIGHT = 1122;
+    private static final int TAKEOUT_TEXTURE_WIDTH = 1792;
+    private static final int TAKEOUT_TEXTURE_HEIGHT = 1285;
+    private static final String[] TAKEOUT_DIALOG_LINES = {
+            "I'm starving... I need:",
+            "I've been craving this all day:",
+            "How are you? I'll be having:",
+            "I'd like to grab:",
+            "I'm thinking of ordering:",
+            "Great day today, I'm craving:",
+            "Hello! I'd like to order:"
+    };
 
     private final int customerId;
     private final Component customerName;
+    private final String orderSummary;
+    private final List<ItemStack> orderItems;
+    private final boolean takeoutLayout;
+    private final int orderStartIndex;
+    private final boolean preferTakeoutOrderSnapshot;
     private ItemStack suggestedItem = ItemStack.EMPTY;
     private int leftPos;
     private int topPos;
@@ -38,15 +62,42 @@ public class CustomerConversationScreen extends Screen {
     private int suggestionSlotX;
     private int suggestionSlotY;
     private boolean suggestionControlsVisible;
+    private int takeoutServeX;
+    private int takeoutLoseX;
+    private int takeoutCloseX;
+    private int takeoutButtonY;
+    private int takeoutButtonWidth;
+    private int takeoutButtonHeight;
 
     public CustomerConversationScreen(CustomerEntity customer) {
-        this(customer.getId(), customer.getDisplayName());
+        this(customer.getId(), customer.getDisplayName(), customer.getOrderSummary(), customer.getOrderItemStacks(),
+                customer.isTakeoutCustomer(), customer.getOrderStartIndex());
     }
 
     public CustomerConversationScreen(int customerId, Component customerName) {
+        this(customerId, customerName, "");
+    }
+
+    public CustomerConversationScreen(int customerId, Component customerName, String orderSummary) {
+        this(customerId, customerName, orderSummary, List.of(), false, 0);
+    }
+
+    public CustomerConversationScreen(int customerId, Component customerName, String orderSummary,
+                                      List<ItemStack> orderItems, boolean takeoutLayout, int orderStartIndex) {
+        this(customerId, customerName, orderSummary, orderItems, takeoutLayout, orderStartIndex, false);
+    }
+
+    public CustomerConversationScreen(int customerId, Component customerName, String orderSummary,
+                                      List<ItemStack> orderItems, boolean takeoutLayout, int orderStartIndex,
+                                      boolean preferTakeoutOrderSnapshot) {
         super(Component.literal("Customer"));
         this.customerId = customerId;
         this.customerName = customerName;
+        this.orderSummary = orderSummary == null ? "" : orderSummary;
+        this.orderItems = List.copyOf(orderItems);
+        this.takeoutLayout = takeoutLayout;
+        this.orderStartIndex = Math.max(0, orderStartIndex);
+        this.preferTakeoutOrderSnapshot = preferTakeoutOrderSnapshot;
     }
 
     public CustomerConversationScreen(int customerId, Component customerName, ItemStack suggestedItem) {
@@ -57,6 +108,11 @@ public class CustomerConversationScreen extends Screen {
 
     @Override
     protected void init() {
+        if (takeoutLayout) {
+            initTakeoutLayout();
+            return;
+        }
+
         this.guiWidth = Math.min(520, this.width - 20);
         this.guiHeight = this.guiWidth * TEXTURE_HEIGHT / TEXTURE_WIDTH;
         if (this.guiHeight > this.height - 20) {
@@ -84,8 +140,31 @@ public class CustomerConversationScreen extends Screen {
         this.openInventoryWidth = textureWidth(310);
     }
 
+    private void initTakeoutLayout() {
+        this.guiHeight = Math.min(TAKEOUT_TEXTURE_HEIGHT, this.height - 20);
+        this.guiWidth = this.guiHeight * TAKEOUT_TEXTURE_WIDTH / TAKEOUT_TEXTURE_HEIGHT;
+        if (this.guiWidth > this.width - 20) {
+            this.guiWidth = this.width - 20;
+            this.guiHeight = this.guiWidth * TAKEOUT_TEXTURE_HEIGHT / TAKEOUT_TEXTURE_WIDTH;
+        }
+
+        this.leftPos = (this.width - this.guiWidth) / 2;
+        this.topPos = (this.height - this.guiHeight) / 2;
+        this.takeoutServeX = takeoutX(370);
+        this.takeoutLoseX = takeoutX(735);
+        this.takeoutCloseX = takeoutX(1100);
+        this.takeoutButtonY = takeoutY(1048);
+        this.takeoutButtonWidth = takeoutWidth(300);
+        this.takeoutButtonHeight = takeoutHeight(108);
+    }
+
     @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
+        if (takeoutLayout) {
+            renderTakeout(graphics, mouseX, mouseY);
+            return;
+        }
+
         this.renderBackground(graphics);
         graphics.blit(BACKGROUND, this.leftPos, this.topPos, this.guiWidth, this.guiHeight,
                 0.0F, 0.0F, TEXTURE_WIDTH, TEXTURE_HEIGHT, TEXTURE_WIDTH, TEXTURE_HEIGHT);
@@ -107,7 +186,7 @@ public class CustomerConversationScreen extends Screen {
         drawWrapped(graphics, Component.literal("Ah, nothing beats a good meal after traveling. I'm starving!"),
                 dialogueX, dialogueY, dialogueWidth, textColor, 4);
         graphics.drawString(this.font, Component.literal("I'd like:"), orderX, orderY, textColor, false);
-        drawWrapped(graphics, Component.literal(customerName.getString()), orderX, orderY + 12, orderWidth, textColor, 2);
+        drawOrderSummary(graphics, orderX, orderY + 12, orderWidth, textColor);
 
         if (suggestionControlsVisible) {
             graphics.drawString(this.font, Component.literal(suggestedItem.isEmpty() ? "Open inventory and pick food." : "Suggested item:"), orderX, orderY + 34, textColor, false);
@@ -134,6 +213,160 @@ public class CustomerConversationScreen extends Screen {
         }
     }
 
+    private void renderTakeout(GuiGraphics graphics, int mouseX, int mouseY) {
+        this.renderBackground(graphics);
+        graphics.blit(TAKEOUT_BACKGROUND, this.leftPos, this.topPos, this.guiWidth, this.guiHeight,
+                0.0F, 0.0F, TAKEOUT_TEXTURE_WIDTH, TAKEOUT_TEXTURE_HEIGHT, TAKEOUT_TEXTURE_WIDTH, TAKEOUT_TEXTURE_HEIGHT);
+
+        renderTakeoutDialog(graphics);
+        renderTakeoutPackageSlot(graphics, mouseX, mouseY);
+        renderTakeoutOrderRows(graphics, mouseX, mouseY);
+        renderTakeoutButtonHover(graphics, this.takeoutServeX, this.takeoutButtonY, this.takeoutButtonWidth, this.takeoutButtonHeight, mouseX, mouseY);
+        renderTakeoutButtonHover(graphics, this.takeoutLoseX, this.takeoutButtonY, this.takeoutButtonWidth, this.takeoutButtonHeight, mouseX, mouseY);
+        renderTakeoutButtonHover(graphics, this.takeoutCloseX, this.takeoutButtonY, this.takeoutButtonWidth, this.takeoutButtonHeight, mouseX, mouseY);
+    }
+
+    private void renderTakeoutDialog(GuiGraphics graphics) {
+        String dialog = TAKEOUT_DIALOG_LINES[Math.floorMod(customerId, TAKEOUT_DIALOG_LINES.length)];
+        drawWrapped(graphics, Component.literal(dialog), takeoutX(650), takeoutY(348), takeoutWidth(760), 0x3B2717, 3);
+    }
+
+    private void renderTakeoutPackageSlot(GuiGraphics graphics, int mouseX, int mouseY) {
+        ItemStack packageStack = getHeldTakeoutPackage();
+        int x = takeoutX(454);
+        int y = takeoutY(704);
+        if (!packageStack.isEmpty()) {
+            graphics.renderItem(packageStack, x, y);
+            graphics.renderItemDecorations(this.font, packageStack, x, y);
+            if (isInside(mouseX, mouseY, x, y, 18, 18)) {
+                graphics.renderTooltip(this.font, packageStack, mouseX, mouseY);
+            }
+        }
+    }
+
+    private void renderTakeoutOrderRows(GuiGraphics graphics, int mouseX, int mouseY) {
+        List<String> names = getTakeoutOrderNames();
+        List<ItemStack> items = getTakeoutOrderItems();
+        for (int row = 0; row < 3; row++) {
+            int iconX = takeoutX(659);
+            int iconY = takeoutY(560 + row * 147);
+            int textX = takeoutX(735);
+            int textY = takeoutY(575 + row * 147);
+            int statusX = takeoutX(1365);
+            int statusY = takeoutY(552 + row * 148);
+            int statusSize = takeoutWidth(78);
+
+            if (row < items.size() && !items.get(row).isEmpty()) {
+                ItemStack stack = items.get(row);
+                graphics.renderItem(stack, iconX, iconY);
+                graphics.renderItemDecorations(this.font, stack, iconX, iconY);
+                if (isInside(mouseX, mouseY, iconX, iconY, 18, 18)) {
+                    graphics.renderTooltip(this.font, stack, mouseX, mouseY);
+                }
+            }
+
+            if (row < names.size() && !names.get(row).isBlank()) {
+                drawClippedString(graphics, names.get(row), textX, textY, takeoutWidth(560), 0x3B2717);
+                graphics.drawCenteredString(this.font, Component.literal("!"),
+                        statusX + statusSize / 2, statusY + statusSize / 2 - 4, 0xFFF2D0);
+                if (isInside(mouseX, mouseY, statusX, statusY, statusSize, statusSize)) {
+                    graphics.fill(statusX + 3, statusY + 3, statusX + statusSize - 3, statusY + statusSize - 3, 0x44FFFFFF);
+                    graphics.renderTooltip(this.font, Component.literal("Item unavailable"), mouseX, mouseY);
+                }
+            }
+        }
+    }
+
+    private List<String> getTakeoutOrderNames() {
+        List<ItemStack> items = getTakeoutOrderItems();
+        List<String> names = new ArrayList<>();
+        if (items.isEmpty()) {
+            return getOrderLines();
+        }
+
+        List<String> orderLines = getOrderLines();
+        for (int index = 0; index < items.size(); index++) {
+            ItemStack stack = items.get(index);
+            if (!stack.isEmpty()) {
+                names.add(stack.getHoverName().getString());
+            } else if (preferTakeoutOrderSnapshot) {
+                names.add("");
+            } else {
+                names.add("");
+            }
+        }
+        return names;
+    }
+
+    private void drawClippedString(GuiGraphics graphics, String text, int x, int y, int maxWidth, int color) {
+        String clipped = this.font.plainSubstrByWidth(text, maxWidth);
+        if (!clipped.equals(text) && clipped.length() > 1) {
+            clipped = clipped.substring(0, clipped.length() - 1) + "...";
+        }
+        graphics.drawString(this.font, Component.literal(clipped), x, y, color, false);
+    }
+
+    private List<String> getOrderLines() {
+        List<String> lines = new ArrayList<>();
+        for (String rawLine : getTakeoutOrderSummary().split("\\R")) {
+            String line = rawLine.trim();
+            int dot = line.indexOf(". ");
+            if (dot >= 0) {
+                line = line.substring(dot + 2);
+            }
+            int rewardStart = line.lastIndexOf(" (");
+            if (rewardStart > 0) {
+                line = line.substring(0, rewardStart);
+            }
+            if (!line.isBlank()) {
+                lines.add(line);
+            }
+        }
+        return lines;
+    }
+
+    private List<ItemStack> getTakeoutOrderItems() {
+        if (preferTakeoutOrderSnapshot && !orderItems.isEmpty()) {
+            return orderItems;
+        }
+        CustomerEntity customer = getLiveCustomer();
+        if (customer != null) {
+            List<ItemStack> liveItems = customer.getOrderItemStacks();
+            if (!liveItems.isEmpty()) {
+                return liveItems;
+            }
+        }
+        return orderItems;
+    }
+
+    private String getTakeoutOrderSummary() {
+        CustomerEntity customer = getLiveCustomer();
+        if (customer != null && !customer.getOrderSummary().isBlank()) {
+            return customer.getOrderSummary();
+        }
+        return orderSummary;
+    }
+
+    private int getTakeoutOrderStartIndex() {
+        CustomerEntity customer = getLiveCustomer();
+        return customer == null ? orderStartIndex : customer.getOrderStartIndex();
+    }
+
+    private CustomerEntity getLiveCustomer() {
+        Minecraft minecraft = Minecraft.getInstance();
+        if (minecraft.level == null) {
+            return null;
+        }
+        Entity entity = minecraft.level.getEntity(customerId);
+        return entity instanceof CustomerEntity customer ? customer : null;
+    }
+
+    private void renderTakeoutButtonHover(GuiGraphics graphics, int x, int y, int width, int height, int mouseX, int mouseY) {
+        if (isInside(mouseX, mouseY, x, y, width, height)) {
+            graphics.fill(x + 5, y + 5, x + width - 5, y + height - 5, 0x22FFFFFF);
+        }
+    }
+
     private void drawButtonLabel(GuiGraphics graphics, int x, int y, int width, int height, String label, int mouseX, int mouseY) {
         if (isInside(mouseX, mouseY, x, y, width, height)) {
             graphics.fill(x + 4, y + 4, x + width - 4, y + height - 4, 0x22FFFFFF);
@@ -152,12 +385,30 @@ public class CustomerConversationScreen extends Screen {
         }
     }
 
+    private void drawOrderSummary(GuiGraphics graphics, int x, int y, int width, int color) {
+        String text = orderSummary.isBlank() ? customerName.getString() : orderSummary;
+        int line = 0;
+        for (String orderLine : text.split("\\R")) {
+            for (net.minecraft.util.FormattedCharSequence sequence : this.font.split(Component.literal(orderLine), width)) {
+                if (line >= 4) {
+                    return;
+                }
+                graphics.drawString(this.font, sequence, x, y + line * 10, color, false);
+                line++;
+            }
+        }
+    }
+
     private void showSuggestionControls() {
         this.suggestionControlsVisible = true;
     }
 
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
+        if (takeoutLayout) {
+            return mouseClickedTakeout(mouseX, mouseY) || super.mouseClicked(mouseX, mouseY, button);
+        }
+
         if (isInside(mouseX, mouseY, this.serveX, this.buttonY, this.buttonWidth, this.buttonHeight)) {
             if (suggestionControlsVisible && !suggestedItem.isEmpty()) {
                 ResourceLocation id = ForgeRegistries.ITEMS.getKey(suggestedItem.getItem());
@@ -190,6 +441,56 @@ public class CustomerConversationScreen extends Screen {
         return super.mouseClicked(mouseX, mouseY, button);
     }
 
+    private boolean mouseClickedTakeout(double mouseX, double mouseY) {
+        for (int row = 0; row < 3; row++) {
+            int statusX = takeoutX(1365);
+            int statusY = takeoutY(552 + row * 148);
+            int statusSize = takeoutWidth(78);
+            List<String> names = getTakeoutOrderNames();
+            if (row < names.size() && !names.get(row).isBlank()
+                    && isInside(mouseX, mouseY, statusX, statusY, statusSize, statusSize)) {
+                int currentOrderStartIndex = getTakeoutOrderStartIndex();
+                int requestIndex = currentOrderStartIndex + row;
+                ModNetwork.CHANNEL.sendToServer(new ServeCustomerPacket(
+                        customerId,
+                        ServeCustomerPacket.Action.UNAVAILABLE_ITEM,
+                        "",
+                        requestIndex
+                ));
+                return true;
+            }
+        }
+
+        if (isInside(mouseX, mouseY, this.takeoutServeX, this.takeoutButtonY, this.takeoutButtonWidth, this.takeoutButtonHeight)) {
+            ModNetwork.CHANNEL.sendToServer(new ServeCustomerPacket(customerId, ServeCustomerPacket.Action.SERVE, ""));
+            this.onClose();
+            return true;
+        }
+        if (isInside(mouseX, mouseY, this.takeoutLoseX, this.takeoutButtonY, this.takeoutButtonWidth, this.takeoutButtonHeight)) {
+            ModNetwork.CHANNEL.sendToServer(new ServeCustomerPacket(customerId, ServeCustomerPacket.Action.LOSE_REQUEST, ""));
+            this.onClose();
+            return true;
+        }
+        if (isInside(mouseX, mouseY, this.takeoutCloseX, this.takeoutButtonY, this.takeoutButtonWidth, this.takeoutButtonHeight)) {
+            this.onClose();
+            return true;
+        }
+        return false;
+    }
+
+    private ItemStack getHeldTakeoutPackage() {
+        Player player = Minecraft.getInstance().player;
+        if (player == null) {
+            return ItemStack.EMPTY;
+        }
+        ItemStack mainHand = player.getMainHandItem();
+        if (mainHand.getItem() == ModItems.TAKEOUT_PACKAGE.get()) {
+            return mainHand;
+        }
+        ItemStack offHand = player.getOffhandItem();
+        return offHand.getItem() == ModItems.TAKEOUT_PACKAGE.get() ? offHand : ItemStack.EMPTY;
+    }
+
     private boolean isInside(double mouseX, double mouseY, int x, int y, int width, int height) {
         return mouseX >= x && mouseX < x + width && mouseY >= y && mouseY < y + height;
     }
@@ -208,6 +509,22 @@ public class CustomerConversationScreen extends Screen {
 
     private int textureHeight(int textureHeight) {
         return textureHeight * this.guiHeight / TEXTURE_HEIGHT;
+    }
+
+    private int takeoutX(int textureX) {
+        return this.leftPos + textureX * this.guiWidth / TAKEOUT_TEXTURE_WIDTH;
+    }
+
+    private int takeoutY(int textureY) {
+        return this.topPos + textureY * this.guiHeight / TAKEOUT_TEXTURE_HEIGHT;
+    }
+
+    private int takeoutWidth(int textureWidth) {
+        return textureWidth * this.guiWidth / TAKEOUT_TEXTURE_WIDTH;
+    }
+
+    private int takeoutHeight(int textureHeight) {
+        return textureHeight * this.guiHeight / TAKEOUT_TEXTURE_HEIGHT;
     }
 
     @Override

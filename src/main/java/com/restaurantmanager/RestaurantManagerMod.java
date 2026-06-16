@@ -1,13 +1,16 @@
 package com.restaurantmanager;
 
 import com.restaurantmanager.food.FoodRegistryScanner;
+import com.restaurantmanager.block.RestaurantSignProtectionEvents;
 import com.restaurantmanager.entity.CustomerEntity;
+import com.restaurantmanager.entity.CustomerSpawnEvents;
 import com.restaurantmanager.network.ModNetwork;
 import com.restaurantmanager.setup.ModBlocks;
 import com.restaurantmanager.setup.ModBlockEntities;
 import com.restaurantmanager.setup.ModCreativeTabs;
 import com.restaurantmanager.setup.ModEntities;
 import com.restaurantmanager.setup.ModItems;
+import com.restaurantmanager.setup.ModMenus;
 import com.restaurantmanager.seating.SeatingDebugEvents;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.eventbus.api.IEventBus;
@@ -28,6 +31,7 @@ public class RestaurantManagerMod {
         ModBlocks.BLOCKS.register(bus);
         ModBlockEntities.BLOCK_ENTITIES.register(bus);
         ModItems.ITEMS.register(bus);
+        ModMenus.MENUS.register(bus);
         ModEntities.ENTITIES.register(bus);
         ModCreativeTabs.CREATIVE_TABS.register(bus);
 
@@ -35,6 +39,8 @@ public class RestaurantManagerMod {
         bus.addListener(this::onEntityAttributeCreation);
 
         MinecraftForge.EVENT_BUS.register(this);
+        MinecraftForge.EVENT_BUS.register(new RestaurantSignProtectionEvents());
+        MinecraftForge.EVENT_BUS.register(new CustomerSpawnEvents());
         MinecraftForge.EVENT_BUS.register(new SeatingDebugEvents());
     }
 
