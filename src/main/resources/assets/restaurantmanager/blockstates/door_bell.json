@@ -1,0 +1,8 @@
+{
+  "variants": {
+    "facing=north": { "model": "restaurantmanager:block/door_bell" },
+    "facing=south": { "model": "restaurantmanager:block/door_bell", "y": 180 },
+    "facing=west": { "model": "restaurantmanager:block/door_bell", "y": 270 },
+    "facing=east": { "model": "restaurantmanager:block/door_bell", "y": 90 }
+  }
+}

@@ -49,6 +49,14 @@ public class PlateBlockEntity extends BlockEntity {
         return false;
     }
 
+    public void setMeals(List<ItemStack> stacks) {
+        for (int slot = 0; slot < meals.size(); slot++) {
+            ItemStack stack = slot < stacks.size() ? stacks.get(slot) : ItemStack.EMPTY;
+            meals.set(slot, stack.isEmpty() ? ItemStack.EMPTY : stack.copyWithCount(1));
+        }
+        markContentsChanged();
+    }
+
     public Optional<ItemStack> findMeal(Item item) {
         return meals.stream()
                 .filter(stack -> !stack.isEmpty() && stack.getItem() == item)
@@ -110,14 +118,17 @@ public class PlateBlockEntity extends BlockEntity {
     protected void saveAdditional(CompoundTag tag) {
         super.saveAdditional(tag);
         ListTag mealTags = new ListTag();
+        int mealCount = 0;
         for (int slot = 0; slot < meals.size(); slot++) {
             ItemStack meal = meals.get(slot);
             if (!meal.isEmpty()) {
                 CompoundTag mealTag = meal.save(new CompoundTag());
                 mealTag.putInt("Slot", slot);
                 mealTags.add(mealTag);
+                mealCount++;
             }
         }
+        tag.putInt("MealCount", mealCount);
         if (!mealTags.isEmpty()) {
             tag.put("Meals", mealTags);
         }
@@ -161,31 +172,49 @@ public class PlateBlockEntity extends BlockEntity {
     @Override
     public void onDataPacket(Connection net, ClientboundBlockEntityDataPacket packet) {
         load(packet.getTag());
+        refreshClientRender();
     }
 
     @Override
     public void handleUpdateTag(CompoundTag tag) {
         load(tag);
+        refreshClientRender();
     }
 
     private void markContentsChanged() {
+        BlockState oldState = level == null ? null : level.getBlockState(worldPosition);
         setChanged();
-        updateFilledState();
-        syncToClient();
+        if (level != null && !level.isClientSide()) {
+            level.blockEntityChanged(worldPosition);
+        }
+        BlockState newState = updateFilledState();
+        syncToClient(oldState, newState);
     }
 
-    private void updateFilledState() {
+    private BlockState updateFilledState() {
         if (level != null && level.getBlockState(worldPosition).getBlock() instanceof PlateBlock) {
             BlockState state = level.getBlockState(worldPosition);
             boolean filled = hasMeals();
             if (state.getValue(PlateBlock.FILLED) != filled) {
                 level.setBlock(worldPosition, state.setValue(PlateBlock.FILLED, filled), 3);
+                return level.getBlockState(worldPosition);
             }
+            return state;
+        }
+        return null;
+    }
+
+    private void syncToClient(@Nullable BlockState oldState, @Nullable BlockState newState) {
+        if (level != null && !level.isClientSide()) {
+            BlockState currentState = newState == null ? level.getBlockState(worldPosition) : newState;
+            BlockState previousState = oldState == null ? currentState : oldState;
+            level.sendBlockUpdated(worldPosition, previousState, currentState, 3);
         }
     }
 
-    private void syncToClient() {
-        if (level != null && !level.isClientSide()) {
+    private void refreshClientRender() {
+        if (level != null && level.isClientSide()) {
+            requestModelDataUpdate();
             BlockState state = level.getBlockState(worldPosition);
             level.sendBlockUpdated(worldPosition, state, state, 3);
         }

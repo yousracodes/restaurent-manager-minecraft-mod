@@ -1,5 +1,6 @@
 package com.restaurantmanager.item;
 
+import com.restaurantmanager.restaurant.RestaurantManager;
 import com.restaurantmanager.seating.RestaurantSeatingApi;
 import net.minecraft.core.BlockPos;
 import net.minecraft.nbt.NbtUtils;
@@ -27,6 +28,10 @@ public class TableLinkToolItem extends Item {
         ItemStack stack = context.getItemInHand();
 
         if (!stack.hasTag() || !stack.getTag().contains(SELECTED_SEAT)) {
+            if (RestaurantManager.get(level).findForLayoutBlock(clickedPos).isEmpty()) {
+                context.getPlayer().displayClientMessage(Component.literal("Chair must be inside or near a restaurant."), true);
+                return InteractionResult.CONSUME;
+            }
             RestaurantSeatingApi.markSeat(clickedPos, level);
             stack.getOrCreateTag().put(SELECTED_SEAT, NbtUtils.writeBlockPos(clickedPos));
             context.getPlayer().displayClientMessage(Component.literal("Chair " + formatPos(clickedPos) + " selected. Now click a table."), true);
@@ -34,6 +39,12 @@ public class TableLinkToolItem extends Item {
         }
 
         BlockPos seatPos = NbtUtils.readBlockPos(stack.getTag().getCompound(SELECTED_SEAT));
+        if (RestaurantManager.get(level).linkSeatToTable(seatPos, clickedPos).isEmpty()) {
+            RestaurantSeatingApi.unmarkSeat(seatPos, level);
+            stack.getTag().remove(SELECTED_SEAT);
+            context.getPlayer().displayClientMessage(Component.literal("Chair and table must belong to the same restaurant."), true);
+            return InteractionResult.CONSUME;
+        }
         RestaurantSeatingApi.markTable(clickedPos, level);
         RestaurantSeatingApi.linkSeatToTable(seatPos, clickedPos, level);
         stack.getTag().remove(SELECTED_SEAT);

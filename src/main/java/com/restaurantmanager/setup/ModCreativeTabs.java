@@ -20,9 +20,8 @@ public class ModCreativeTabs {
                         output.accept(ModItems.RESTAURANT_SIGN.get());
                         output.accept(ModItems.PLATE.get());
                         output.accept(ModItems.CASH_REGISTER.get());
+                        output.accept(ModItems.DOOR_BELL.get());
                         output.accept(ModItems.RESTAURANT_MENU.get());
-                        output.accept(ModItems.ENTRANCE_TOOL.get());
-                        output.accept(ModItems.EXIT_TOOL.get());
                         output.accept(ModItems.TABLE_LINK_TOOL.get());
                         output.accept(ModItems.TAKEOUT_PACKAGE.get());
                     })

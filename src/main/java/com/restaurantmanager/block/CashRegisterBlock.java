@@ -1,8 +1,10 @@
 package com.restaurantmanager.block;
 
+import com.restaurantmanager.restaurant.RestaurantManager;
 import com.restaurantmanager.seating.RestaurantSeatingApi;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.item.context.BlockPlaceContext;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.HorizontalDirectionalBlock;
@@ -33,7 +35,10 @@ public class CashRegisterBlock extends HorizontalDirectionalBlock {
     public void onPlace(BlockState state, Level level, BlockPos pos, BlockState oldState, boolean moving) {
         super.onPlace(state, level, pos, oldState, moving);
         if (!oldState.is(state.getBlock())) {
-            RestaurantSeatingApi.markCounter(pos, level);
+            if (level instanceof ServerLevel serverLevel
+                    && RestaurantManager.get(serverLevel).assignCounter(pos).isPresent()) {
+                RestaurantSeatingApi.markCounter(pos, level);
+            }
         }
     }
 
@@ -41,6 +46,9 @@ public class CashRegisterBlock extends HorizontalDirectionalBlock {
     public void onRemove(BlockState state, Level level, BlockPos pos, BlockState newState, boolean moving) {
         if (!state.is(newState.getBlock())) {
             RestaurantSeatingApi.unmarkCounter(pos, level);
+            if (level instanceof ServerLevel serverLevel) {
+                RestaurantManager.get(serverLevel).clearCounter(pos);
+            }
         }
         super.onRemove(state, level, pos, newState, moving);
     }

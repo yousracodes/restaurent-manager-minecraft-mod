@@ -6,5 +6,6 @@ public enum MarkType {
     QUEUE,
     COUNTER,
     ENTRANCE,
-    EXIT
+    EXIT,
+    DOOR_BELL
 }

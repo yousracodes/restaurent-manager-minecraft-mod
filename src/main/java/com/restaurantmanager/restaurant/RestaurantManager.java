@@ -10,6 +10,7 @@ import net.minecraft.nbt.NbtUtils;
 import net.minecraft.nbt.Tag;
 import net.minecraft.world.level.saveddata.SavedData;
 import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.Vec3;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -75,6 +76,82 @@ public class RestaurantManager extends SavedData {
                 .findFirst();
     }
 
+    public Optional<Restaurant> findForLayoutBlock(BlockPos pos) {
+        Vec3 center = Vec3.atCenterOf(pos);
+        return restaurants.stream()
+                .filter(Restaurant::isActive)
+                .filter(restaurant -> restaurant.getBounds().inflate(2.0).contains(
+                        center.x,
+                        center.y,
+                        center.z
+                ))
+                .min((first, second) -> Double.compare(
+                        first.getBounds().getCenter().distanceToSqr(center),
+                        second.getBounds().getCenter().distanceToSqr(center)
+                ));
+    }
+
+    public Optional<Restaurant> findForDoorBell(BlockPos bellPos) {
+        return findForLayoutBlock(bellPos);
+    }
+
+    public Optional<Restaurant> assignDoorBell(BlockPos bellPos) {
+        Optional<Restaurant> owner = findForLayoutBlock(bellPos);
+        owner.ifPresent(restaurant -> {
+            restaurant.setDoorBellPos(bellPos);
+            setDirty();
+        });
+        return owner;
+    }
+
+    public void clearDoorBell(BlockPos bellPos) {
+        boolean changed = false;
+        for (Restaurant restaurant : restaurants) {
+            if (restaurant.hasDoorBell(bellPos)) {
+                restaurant.clearDoorBellPos(bellPos);
+                changed = true;
+            }
+        }
+        if (changed) {
+            setDirty();
+        }
+    }
+
+    public Optional<Restaurant> assignCounter(BlockPos counterPos) {
+        Optional<Restaurant> owner = findForLayoutBlock(counterPos);
+        owner.ifPresent(restaurant -> {
+            restaurant.setCounterPos(counterPos);
+            setDirty();
+        });
+        return owner;
+    }
+
+    public void clearCounter(BlockPos counterPos) {
+        boolean changed = false;
+        for (Restaurant restaurant : restaurants) {
+            if (restaurant.hasCounter(counterPos)) {
+                restaurant.clearCounterPos(counterPos);
+                changed = true;
+            }
+        }
+        if (changed) {
+            setDirty();
+        }
+    }
+
+    public Optional<Restaurant> linkSeatToTable(BlockPos chairPos, BlockPos tablePos) {
+        Optional<Restaurant> chairRestaurant = findForLayoutBlock(chairPos);
+        Optional<Restaurant> tableRestaurant = findForLayoutBlock(tablePos);
+        if (chairRestaurant.isEmpty() || tableRestaurant.isEmpty()
+                || !chairRestaurant.get().getId().equals(tableRestaurant.get().getId())) {
+            return Optional.empty();
+        }
+        Restaurant restaurant = chairRestaurant.get();
+        restaurant.addSeatTableLink(chairPos, tablePos);
+        setDirty();
+        return Optional.of(restaurant);
+    }
+
     public boolean overlaps(AABB bounds) {
         return overlaps(bounds, null);
     }
@@ -119,6 +196,9 @@ public class RestaurantManager extends SavedData {
             compound.putUUID("ownerUuid", restaurant.getOwnerUuid());
         }
         compound.putString("ownerName", restaurant.getOwnerName());
+        restaurant.getDoorBellPos().ifPresent(pos -> compound.put("doorBellPos", NbtUtils.writeBlockPos(pos)));
+        restaurant.getCounterPos().ifPresent(pos -> compound.put("counterPos", NbtUtils.writeBlockPos(pos)));
+        compound.put("seatTableLinks", writeSeatTableLinks(restaurant.getSeatTableLinks()));
         compound.put("menus", writeMenus(restaurant.getMenus()));
     }
 
@@ -138,8 +218,40 @@ public class RestaurantManager extends SavedData {
                 compound.contains("name") ? compound.getString("name") : "Restaurant",
                 compound.hasUUID("ownerUuid") ? compound.getUUID("ownerUuid") : null,
                 compound.getString("ownerName"),
-                readMenus(compound)
+                readMenus(compound),
+                compound.contains("doorBellPos") ? NbtUtils.readBlockPos(compound.getCompound("doorBellPos")) : null,
+                compound.contains("counterPos") ? NbtUtils.readBlockPos(compound.getCompound("counterPos")) : null,
+                readSeatTableLinks(compound)
         );
+    }
+
+    private static ListTag writeSeatTableLinks(List<SeatTableLink> links) {
+        ListTag list = new ListTag();
+        for (SeatTableLink link : links) {
+            CompoundTag tag = new CompoundTag();
+            tag.put("chairPos", NbtUtils.writeBlockPos(link.getChairPos()));
+            tag.put("tablePos", NbtUtils.writeBlockPos(link.getTablePos()));
+            list.add(tag);
+        }
+        return list;
+    }
+
+    private static List<SeatTableLink> readSeatTableLinks(CompoundTag compound) {
+        List<SeatTableLink> links = new ArrayList<>();
+        if (!compound.contains("seatTableLinks", Tag.TAG_LIST)) {
+            return links;
+        }
+        ListTag list = compound.getList("seatTableLinks", Tag.TAG_COMPOUND);
+        for (int i = 0; i < list.size(); i++) {
+            CompoundTag tag = list.getCompound(i);
+            if (tag.contains("chairPos") && tag.contains("tablePos")) {
+                links.add(new SeatTableLink(
+                        NbtUtils.readBlockPos(tag.getCompound("chairPos")),
+                        NbtUtils.readBlockPos(tag.getCompound("tablePos"))
+                ));
+            }
+        }
+        return links;
     }
 
     private static ListTag writeMenus(List<RestaurantMenu> menus) {

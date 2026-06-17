@@ -61,7 +61,7 @@ public class ServeCustomerPacket {
                         if (customer.isTakeoutCustomer()) {
                             customer.serveTakeoutFromHeldPackage(player);
                         } else {
-                            customer.serveFromInventory(player);
+                            customer.serveDineInFromHeldPlate(player);
                         }
                     }
                     case UNAVAILABLE -> customer.markCurrentRequestUnavailable(player);

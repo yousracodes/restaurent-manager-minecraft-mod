@@ -40,6 +40,7 @@ public class CustomerConversationScreen extends Screen {
     private final String orderSummary;
     private final List<ItemStack> orderItems;
     private final boolean takeoutLayout;
+    private final boolean takeoutCustomer;
     private final int orderStartIndex;
     private final boolean preferTakeoutOrderSnapshot;
     private ItemStack suggestedItem = ItemStack.EMPTY;
@@ -71,7 +72,7 @@ public class CustomerConversationScreen extends Screen {
 
     public CustomerConversationScreen(CustomerEntity customer) {
         this(customer.getId(), customer.getDisplayName(), customer.getOrderSummary(), customer.getOrderItemStacks(),
-                customer.isTakeoutCustomer(), customer.getOrderStartIndex());
+                true, customer.getOrderStartIndex(), false, customer.isTakeoutCustomer());
     }
 
     public CustomerConversationScreen(int customerId, Component customerName) {
@@ -90,12 +91,20 @@ public class CustomerConversationScreen extends Screen {
     public CustomerConversationScreen(int customerId, Component customerName, String orderSummary,
                                       List<ItemStack> orderItems, boolean takeoutLayout, int orderStartIndex,
                                       boolean preferTakeoutOrderSnapshot) {
+        this(customerId, customerName, orderSummary, orderItems, takeoutLayout, orderStartIndex,
+                preferTakeoutOrderSnapshot, takeoutLayout);
+    }
+
+    public CustomerConversationScreen(int customerId, Component customerName, String orderSummary,
+                                      List<ItemStack> orderItems, boolean takeoutLayout, int orderStartIndex,
+                                      boolean preferTakeoutOrderSnapshot, boolean takeoutCustomer) {
         super(Component.literal("Customer"));
         this.customerId = customerId;
         this.customerName = customerName;
         this.orderSummary = orderSummary == null ? "" : orderSummary;
         this.orderItems = List.copyOf(orderItems);
         this.takeoutLayout = takeoutLayout;
+        this.takeoutCustomer = takeoutCustomer;
         this.orderStartIndex = Math.max(0, orderStartIndex);
         this.preferTakeoutOrderSnapshot = preferTakeoutOrderSnapshot;
     }
@@ -232,7 +241,7 @@ public class CustomerConversationScreen extends Screen {
     }
 
     private void renderTakeoutPackageSlot(GuiGraphics graphics, int mouseX, int mouseY) {
-        ItemStack packageStack = getHeldTakeoutPackage();
+        ItemStack packageStack = getHeldServingContainer();
         int x = takeoutX(454);
         int y = takeoutY(704);
         if (!packageStack.isEmpty()) {
@@ -478,17 +487,31 @@ public class CustomerConversationScreen extends Screen {
         return false;
     }
 
-    private ItemStack getHeldTakeoutPackage() {
+    private ItemStack getHeldServingContainer() {
         Player player = Minecraft.getInstance().player;
         if (player == null) {
             return ItemStack.EMPTY;
         }
+        if (!isViewingTakeoutCustomer()) {
+            ItemStack mainHand = player.getMainHandItem();
+            if (mainHand.getItem() == ModItems.PLATE.get()) {
+                return mainHand;
+            }
+            ItemStack offHand = player.getOffhandItem();
+            return offHand.getItem() == ModItems.PLATE.get() ? offHand : ItemStack.EMPTY;
+        }
+
         ItemStack mainHand = player.getMainHandItem();
         if (mainHand.getItem() == ModItems.TAKEOUT_PACKAGE.get()) {
             return mainHand;
         }
         ItemStack offHand = player.getOffhandItem();
         return offHand.getItem() == ModItems.TAKEOUT_PACKAGE.get() ? offHand : ItemStack.EMPTY;
+    }
+
+    private boolean isViewingTakeoutCustomer() {
+        CustomerEntity customer = getLiveCustomer();
+        return customer == null ? takeoutCustomer : customer.isTakeoutCustomer();
     }
 
     private boolean isInside(double mouseX, double mouseY, int x, int y, int width, int height) {

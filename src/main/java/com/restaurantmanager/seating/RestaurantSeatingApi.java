@@ -83,6 +83,16 @@ public final class RestaurantSeatingApi {
         }
     }
 
+    public static void markDoorBell(BlockPos pos, Direction facing, Level level) {
+        markPoint(pos, level, MarkType.DOOR_BELL, getDoorBellTarget(pos, facing, level));
+    }
+
+    public static void unmarkDoorBell(BlockPos pos, Level level) {
+        if (level instanceof ServerLevel serverLevel && SeatingMarkSavedData.get(serverLevel).isDoorBell(pos)) {
+            SeatingMarkSavedData.get(serverLevel).unmark(pos);
+        }
+    }
+
     public static boolean isSeat(BlockPos pos, Level level) {
         return level instanceof ServerLevel serverLevel && SeatingMarkSavedData.get(serverLevel).isSeat(pos);
     }
@@ -105,6 +115,10 @@ public final class RestaurantSeatingApi {
 
     public static boolean isExit(BlockPos pos, Level level) {
         return level instanceof ServerLevel serverLevel && SeatingMarkSavedData.get(serverLevel).isExit(pos);
+    }
+
+    public static boolean isDoorBell(BlockPos pos, Level level) {
+        return level instanceof ServerLevel serverLevel && SeatingMarkSavedData.get(serverLevel).isDoorBell(pos);
     }
 
     public static List<MarkedPoint> getNearbySeats(BlockPos restaurantCenter, double radius, ServerLevel level) {
@@ -133,6 +147,10 @@ public final class RestaurantSeatingApi {
 
     public static Optional<MarkedPoint> findNearestExit(BlockPos restaurantCenter, double radius, ServerLevel level) {
         return SeatingMarkSavedData.get(level).findNearestExit(restaurantCenter, radius);
+    }
+
+    public static Optional<MarkedPoint> getPoint(BlockPos pos, ServerLevel level) {
+        return SeatingMarkSavedData.get(level).getPoint(pos);
     }
 
     public static boolean occupySeat(BlockPos pos, UUID entityId, ServerLevel level) {
@@ -184,6 +202,18 @@ public final class RestaurantSeatingApi {
                     interactionPosition
             ));
         }
+    }
+
+    private static Vec3 getDoorBellTarget(BlockPos pos, Direction facing, Level level) {
+        BlockPos target = pos.relative(facing);
+        for (int i = 0; i < 3 && target.getY() > level.getMinBuildHeight(); i++) {
+            BlockPos below = target.below();
+            if (!level.getBlockState(below).isAir()) {
+                return Vec3.atBottomCenterOf(target);
+            }
+            target = below;
+        }
+        return Vec3.atBottomCenterOf(pos);
     }
 
     private static Vec3 computeSeatPosition(BlockPos pos, Level level) {

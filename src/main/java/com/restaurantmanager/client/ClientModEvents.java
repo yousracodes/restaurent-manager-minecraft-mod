@@ -21,6 +21,9 @@ public class ClientModEvents {
 
     @SubscribeEvent
     public static void registerMenuScreens(FMLClientSetupEvent event) {
-        event.enqueueWork(() -> MenuScreens.register(ModMenus.TAKEOUT_PACKAGE.get(), TakeoutPackageScreen::new));
+        event.enqueueWork(() -> {
+            MenuScreens.register(ModMenus.TAKEOUT_PACKAGE.get(), TakeoutPackageScreen::new);
+            MenuScreens.register(ModMenus.PLATE.get(), PlateScreen::new);
+        });
     }
 }

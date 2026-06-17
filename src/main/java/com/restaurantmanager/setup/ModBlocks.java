@@ -1,6 +1,7 @@
 package com.restaurantmanager.setup;
 
 import com.restaurantmanager.block.CashRegisterBlock;
+import com.restaurantmanager.block.DoorBellBlock;
 import com.restaurantmanager.block.RestaurantSignBlock;
 import com.restaurantmanager.block.PlateBlock;
 import com.restaurantmanager.RestaurantManagerMod;
@@ -23,5 +24,9 @@ public class ModBlocks {
 
     public static final RegistryObject<Block> CASH_REGISTER = BLOCKS.register("cash_register", () ->
             new CashRegisterBlock(BlockBehaviour.Properties.of().strength(1.5F).noOcclusion())
+    );
+
+    public static final RegistryObject<Block> DOOR_BELL = BLOCKS.register("door_bell", () ->
+            new DoorBellBlock(BlockBehaviour.Properties.of().strength(0.4F).noOcclusion())
     );
 }

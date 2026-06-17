@@ -1,5 +1,6 @@
 package com.restaurantmanager.item;
 
+import com.restaurantmanager.restaurant.RestaurantManager;
 import com.restaurantmanager.seating.RestaurantSeatingApi;
 import com.restaurantmanager.seating.SeatingMarkSavedData;
 import net.minecraft.core.particles.ParticleTypes;
@@ -22,10 +23,17 @@ public class CounterToolItem extends Item {
 
         if (SeatingMarkSavedData.get(level).isCounter(context.getClickedPos())) {
             RestaurantSeatingApi.unmarkCounter(context.getClickedPos(), level);
+            RestaurantManager.get(level).clearCounter(context.getClickedPos());
             if (context.getPlayer() != null) {
                 context.getPlayer().displayClientMessage(Component.literal("Counter spot removed."), true);
             }
         } else {
+            if (RestaurantManager.get(level).assignCounter(context.getClickedPos()).isEmpty()) {
+                if (context.getPlayer() != null) {
+                    context.getPlayer().displayClientMessage(Component.literal("Counter must be inside or near a restaurant."), true);
+                }
+                return InteractionResult.CONSUME;
+            }
             RestaurantSeatingApi.markCounter(context.getClickedPos(), level);
             if (context.getPlayer() != null) {
                 context.getPlayer().displayClientMessage(Component.literal("Counter spot marked."), true);

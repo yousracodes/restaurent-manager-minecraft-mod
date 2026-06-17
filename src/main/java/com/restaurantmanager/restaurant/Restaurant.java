@@ -26,7 +26,10 @@ public class Restaurant {
     private String name;
     private UUID ownerUuid;
     private String ownerName;
+    private BlockPos doorBellPos;
+    private BlockPos counterPos;
     private final List<RestaurantMenu> menus = new ArrayList<>();
+    private final List<SeatTableLink> seatTableLinks = new ArrayList<>();
 
     public Restaurant(UUID id, BlockPos signPos, AABB bounds, int reputation, int customersServed, int ordersCompleted,
                       int ordersFailed, int customersLost, int moneyEarned, boolean open, String name,
@@ -45,6 +48,14 @@ public class Restaurant {
     public Restaurant(UUID id, BlockPos signPos, AABB bounds, int reputation, int customersServed, int ordersCompleted,
                       int ordersFailed, int customersLost, int moneyEarned, boolean open, boolean active, String name,
                       UUID ownerUuid, String ownerName, List<RestaurantMenu> menus) {
+        this(id, signPos, bounds, reputation, customersServed, ordersCompleted, ordersFailed, customersLost,
+                moneyEarned, open, active, name, ownerUuid, ownerName, menus, null, null, List.of());
+    }
+
+    public Restaurant(UUID id, BlockPos signPos, AABB bounds, int reputation, int customersServed, int ordersCompleted,
+                      int ordersFailed, int customersLost, int moneyEarned, boolean open, boolean active, String name,
+                      UUID ownerUuid, String ownerName, List<RestaurantMenu> menus, BlockPos doorBellPos,
+                      BlockPos counterPos, List<SeatTableLink> seatTableLinks) {
         this.id = id;
         this.signPos = signPos;
         this.bounds = bounds;
@@ -59,7 +70,10 @@ public class Restaurant {
         this.name = name == null || name.isBlank() ? "Restaurant" : name;
         this.ownerUuid = ownerUuid;
         this.ownerName = ownerName == null ? "" : ownerName;
+        this.doorBellPos = doorBellPos == null ? null : doorBellPos.immutable();
+        this.counterPos = counterPos == null ? null : counterPos.immutable();
         replaceMenus(menus);
+        replaceSeatTableLinks(seatTableLinks);
     }
 
     public Restaurant(UUID id, BlockPos signPos, AABB bounds, int reputation, int customersServed, boolean open, RestaurantMenu menu) {
@@ -88,6 +102,66 @@ public class Restaurant {
 
     public AABB getBounds() {
         return bounds;
+    }
+
+    public Optional<BlockPos> getDoorBellPos() {
+        return Optional.ofNullable(doorBellPos);
+    }
+
+    public boolean hasDoorBell(BlockPos pos) {
+        return doorBellPos != null && doorBellPos.equals(pos);
+    }
+
+    public void setDoorBellPos(BlockPos doorBellPos) {
+        this.doorBellPos = doorBellPos == null ? null : doorBellPos.immutable();
+    }
+
+    public void clearDoorBellPos(BlockPos pos) {
+        if (hasDoorBell(pos)) {
+            this.doorBellPos = null;
+        }
+    }
+
+    public Optional<BlockPos> getCounterPos() {
+        return Optional.ofNullable(counterPos);
+    }
+
+    public boolean hasCounter(BlockPos pos) {
+        return counterPos != null && counterPos.equals(pos);
+    }
+
+    public void setCounterPos(BlockPos counterPos) {
+        this.counterPos = counterPos == null ? null : counterPos.immutable();
+    }
+
+    public void clearCounterPos(BlockPos pos) {
+        if (hasCounter(pos)) {
+            this.counterPos = null;
+        }
+    }
+
+    public List<SeatTableLink> getSeatTableLinks() {
+        return Collections.unmodifiableList(seatTableLinks);
+    }
+
+    public void addSeatTableLink(BlockPos chairPos, BlockPos tablePos) {
+        seatTableLinks.removeIf(link -> link.hasChair(chairPos));
+        seatTableLinks.add(new SeatTableLink(chairPos, tablePos));
+    }
+
+    public void removeSeatTableLinkAt(BlockPos pos) {
+        seatTableLinks.removeIf(link -> link.contains(pos));
+    }
+
+    public void replaceSeatTableLinks(List<SeatTableLink> links) {
+        seatTableLinks.clear();
+        if (links != null) {
+            for (SeatTableLink link : links) {
+                if (link != null) {
+                    seatTableLinks.add(link);
+                }
+            }
+        }
     }
 
     public void updateAnchor(BlockPos signPos, AABB bounds) {

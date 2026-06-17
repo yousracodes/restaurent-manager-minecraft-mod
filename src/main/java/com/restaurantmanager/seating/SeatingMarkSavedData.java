@@ -114,11 +114,15 @@ public class SeatingMarkSavedData extends SavedData {
     }
 
     public boolean isEntrance(BlockPos pos) {
-        return isType(pos, MarkType.ENTRANCE);
+        return isType(pos, MarkType.ENTRANCE) || isType(pos, MarkType.DOOR_BELL);
     }
 
     public boolean isExit(BlockPos pos) {
-        return isType(pos, MarkType.EXIT);
+        return isType(pos, MarkType.EXIT) || isType(pos, MarkType.DOOR_BELL);
+    }
+
+    public boolean isDoorBell(BlockPos pos) {
+        return isType(pos, MarkType.DOOR_BELL);
     }
 
     public boolean isType(BlockPos pos, MarkType type) {
@@ -151,17 +155,18 @@ public class SeatingMarkSavedData extends SavedData {
     }
 
     public List<MarkedPoint> getNearbyEntrances(BlockPos restaurantCenter, double radius) {
-        return getNearbyPoints(restaurantCenter, radius, MarkType.ENTRANCE);
+        return getNearbyPoints(restaurantCenter, radius, MarkType.ENTRANCE, MarkType.DOOR_BELL);
     }
 
     public List<MarkedPoint> getNearbyExits(BlockPos restaurantCenter, double radius) {
-        return getNearbyPoints(restaurantCenter, radius, MarkType.EXIT);
+        return getNearbyPoints(restaurantCenter, radius, MarkType.EXIT, MarkType.DOOR_BELL);
     }
 
-    private List<MarkedPoint> getNearbyPoints(BlockPos restaurantCenter, double radius, MarkType type) {
+    private List<MarkedPoint> getNearbyPoints(BlockPos restaurantCenter, double radius, MarkType... types) {
         double radiusSqr = radius * radius;
+        List<MarkType> allowedTypes = List.of(types);
         return marks.values().stream()
-                .filter(point -> point.getType() == type)
+                .filter(point -> allowedTypes.contains(point.getType()))
                 .filter(point -> point.getPos().distSqr(restaurantCenter) <= radiusSqr)
                 .sorted(Comparator.comparingDouble(point -> point.getPos().distSqr(restaurantCenter)))
                 .toList();
@@ -311,7 +316,7 @@ public class SeatingMarkSavedData extends SavedData {
                 case SEAT -> occupiedSeats.get(point.getPos());
                 case QUEUE -> occupiedQueueSpots.get(point.getPos());
                 case COUNTER -> occupiedCounters.get(point.getPos());
-                case TABLE, ENTRANCE, EXIT -> null;
+                case TABLE, ENTRANCE, EXIT, DOOR_BELL -> null;
             };
             if (occupant != null) {
                 tag.putUUID("occupiedBy", occupant);

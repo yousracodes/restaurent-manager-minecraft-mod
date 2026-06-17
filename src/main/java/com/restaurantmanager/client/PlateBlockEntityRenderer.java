@@ -1,6 +1,7 @@
 package com.restaurantmanager.client;
 
 import com.mojang.blaze3d.vertex.PoseStack;
+import com.restaurantmanager.block.PlateBlock;
 import com.restaurantmanager.block.PlateBlockEntity;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.MultiBufferSource;
@@ -16,9 +17,9 @@ import java.util.List;
 
 public class PlateBlockEntityRenderer implements BlockEntityRenderer<PlateBlockEntity> {
     private static final double[][] SLOT_POSITIONS = {
-            {0.33, 0.58, 0.38, -18.0},
-            {0.50, 0.59, 0.52, 6.0},
-            {0.67, 0.58, 0.38, 22.0}
+            {0.33, 0.18, 0.38, -18.0},
+            {0.50, 0.19, 0.52, 6.0},
+            {0.67, 0.18, 0.38, 22.0}
     };
 
     private final ItemRenderer itemRenderer;
@@ -30,6 +31,11 @@ public class PlateBlockEntityRenderer implements BlockEntityRenderer<PlateBlockE
     @Override
     public void render(PlateBlockEntity plate, float partialTick, PoseStack poseStack, MultiBufferSource buffer,
                        int packedLight, int packedOverlay) {
+        if (plate.getBlockState().hasProperty(PlateBlock.FILLED)
+                && !plate.getBlockState().getValue(PlateBlock.FILLED)) {
+            return;
+        }
+
         List<ItemStack> meals = plate.getMeals();
         for (int slot = 0; slot < meals.size() && slot < SLOT_POSITIONS.length; slot++) {
             ItemStack meal = meals.get(slot);
