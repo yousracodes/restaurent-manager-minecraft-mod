@@ -25,7 +25,7 @@ import java.util.UUID;
 
 public class RestaurantManager extends SavedData {
     private static final String KEY = "restaurant_manager_restaurants";
-    private static final double LAYOUT_BIND_RANGE = 6.0;
+    private static final double LAYOUT_BIND_RANGE = 12.0;
     private final List<Restaurant> restaurants = new ArrayList<>();
 
     public static RestaurantManager get(ServerLevel level) {

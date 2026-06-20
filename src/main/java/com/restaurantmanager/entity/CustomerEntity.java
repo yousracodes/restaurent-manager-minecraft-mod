@@ -1,6 +1,7 @@
 package com.restaurantmanager.entity;
 
 import com.restaurantmanager.client.ClientCustomerScreens;
+import com.restaurantmanager.block.CashRegisterBlock;
 import com.restaurantmanager.block.PlateBlockEntity;
 import com.restaurantmanager.food.FoodRegistryScanner;
 import com.restaurantmanager.food.FoodRequest;
@@ -27,6 +28,7 @@ import net.minecraft.network.syncher.SynchedEntityData;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.util.Mth;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.PathfinderMob;
@@ -34,8 +36,11 @@ import net.minecraft.world.entity.ai.attributes.AttributeSupplier;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.ai.goal.FloatGoal;
 import net.minecraft.world.entity.ai.goal.Goal;
+import net.minecraft.world.entity.ai.goal.OpenDoorGoal;
 import net.minecraft.world.entity.ai.goal.RandomLookAroundGoal;
 import net.minecraft.world.entity.ai.goal.RandomStrollGoal;
+import net.minecraft.world.entity.ai.navigation.GroundPathNavigation;
+import net.minecraft.world.entity.ai.navigation.PathNavigation;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
@@ -83,6 +88,7 @@ public class CustomerEntity extends PathfinderMob {
     private static final int CLOSED_RESTAURANT_SEARCH_INTERVAL = 20 * 5;
     private static final int RESTAURANT_SEARCH_INTERVAL = 20;
     private static final int RESERVATION_SEARCH_INTERVAL = 10;
+    private static final double LEAVING_REACHED_DISTANCE_SQR = 1.5;
 
     private final List<FoodRequest> requests = new ArrayList<>();
     private int currentRequestIndex;
@@ -115,6 +121,13 @@ public class CustomerEntity extends PathfinderMob {
 
     public CustomerEntity(EntityType<? extends PathfinderMob> type, Level world) {
         super(type, world);
+    }
+
+    @Override
+    protected PathNavigation createNavigation(Level level) {
+        GroundPathNavigation navigation = new GroundPathNavigation(this, level);
+        navigation.setCanOpenDoors(true);
+        return navigation;
     }
 
     @Override
@@ -263,11 +276,12 @@ public class CustomerEntity extends PathfinderMob {
     @Override
     protected void registerGoals() {
         this.goalSelector.addGoal(0, new FloatGoal(this));
-        this.goalSelector.addGoal(1, new EnterRestaurantGoal(this));
-        this.goalSelector.addGoal(2, new CounterGoal(this));
-        this.goalSelector.addGoal(3, new WaitForFoodGoal(this));
-        this.goalSelector.addGoal(4, new RandomStrollGoal(this, 0.6));
-        this.goalSelector.addGoal(5, new RandomLookAroundGoal(this));
+        this.goalSelector.addGoal(1, new OpenDoorGoal(this, true));
+        this.goalSelector.addGoal(2, new EnterRestaurantGoal(this));
+        this.goalSelector.addGoal(3, new CounterGoal(this));
+        this.goalSelector.addGoal(4, new WaitForFoodGoal(this));
+        this.goalSelector.addGoal(5, new CustomerRandomStrollGoal(this));
+        this.goalSelector.addGoal(6, new RandomLookAroundGoal(this));
     }
 
     @Override
@@ -360,6 +374,8 @@ public class CustomerEntity extends PathfinderMob {
             leavingClosedRestaurant = false;
             closedRestaurantLeaveTimer = 0;
             state = CustomerState.LEAVING;
+            this.setCustomName(Component.literal("Leaving"));
+            this.setCustomNameVisible(true);
         }
 
         if (state == CustomerState.LEAVING && restaurant != null) {
@@ -367,11 +383,21 @@ public class CustomerEntity extends PathfinderMob {
             if (leavingClosedRestaurant && handleClosedRestaurantLeaving()) {
                 return;
             }
-            Vec3 leavingTarget = getLeavingTarget();
-            this.getNavigation().moveTo(leavingTarget.x, leavingTarget.y, leavingTarget.z, 1.0);
-            if (this.distanceToSqr(leavingTarget.x, leavingTarget.y, leavingTarget.z) <= 1.5) {
-                this.discard();
+            if (exitTarget == null && this.level() instanceof ServerLevel serverLevel) {
+                updateRestaurantTargets(serverLevel);
             }
+            Optional<Vec3> leavingTarget = getLeavingTarget();
+            if (leavingTarget.isEmpty()) {
+                this.setCustomName(Component.literal("Leaving: no doorbell"));
+                this.setCustomNameVisible(true);
+                return;
+            }
+            leavingTarget.ifPresent(target -> {
+                this.getNavigation().moveTo(target.x, target.y, target.z, 1.0);
+                if (this.distanceToSqr(target.x, target.y, target.z) <= LEAVING_REACHED_DISTANCE_SQR) {
+                    this.discard();
+                }
+            });
         }
     }
 
@@ -395,14 +421,11 @@ public class CustomerEntity extends PathfinderMob {
         }
     }
 
-    private Vec3 getLeavingTarget() {
-        if (exitTarget != null) {
-            return exitTarget;
+    private Optional<Vec3> getLeavingTarget() {
+        if (exitTarget == null) {
+            return Optional.empty();
         }
-        if (restaurant != null) {
-            return new Vec3(restaurant.getSignPos().getX() + 1.5, restaurant.getSignPos().getY(), restaurant.getSignPos().getZ() + 0.5);
-        }
-        return position();
+        return Optional.of(exitTarget);
     }
 
     private boolean handleClosedRestaurantLeaving() {
@@ -476,6 +499,9 @@ public class CustomerEntity extends PathfinderMob {
         }
         BlockPos center = BlockPos.containing(restaurant.getBounds().getCenter());
         double radius = Math.max(16.0, Math.max(restaurant.getBounds().getXsize(), restaurant.getBounds().getZsize()) + 8.0);
+        if (restaurant.getDoorBellPos().isEmpty()) {
+            RestaurantManager.get(level).refreshLayoutBlocks(restaurant, level);
+        }
         Optional<Vec3> doorBellTarget = restaurant.getDoorBellPos()
                 .flatMap(pos -> RestaurantSeatingApi.getPoint(pos, level))
                 .map(MarkedPoint::getInteractionPosition)
@@ -483,9 +509,7 @@ public class CustomerEntity extends PathfinderMob {
         entranceTarget = doorBellTarget.or(() -> RestaurantSeatingApi.findNearestEntrance(center, radius, level)
                 .map(MarkedPoint::getInteractionPosition)
         ).orElse(null);
-        exitTarget = doorBellTarget.or(() -> RestaurantSeatingApi.findNearestExit(center, radius, level)
-                .map(MarkedPoint::getInteractionPosition)
-        ).orElse(entranceTarget);
+        exitTarget = doorBellTarget.orElse(null);
     }
 
     public void assignRestaurant(Restaurant restaurant) {
@@ -1123,8 +1147,10 @@ public class CustomerEntity extends PathfinderMob {
         if (restaurantCounter.isPresent()
                 && RestaurantSeatingApi.occupyCounter(restaurantCounter.get(), this.getUUID(), serverLevel)) {
             reservedCounterPos = restaurantCounter.get();
-            counterTarget = RestaurantSeatingApi.getPoint(reservedCounterPos, serverLevel)
+            counterTarget = getCashRegisterInteractionPosition(reservedCounterPos, serverLevel)
+                    .or(() -> RestaurantSeatingApi.getPoint(reservedCounterPos, serverLevel)
                     .map(MarkedPoint::getInteractionPosition)
+                    )
                     .orElse(Vec3.atBottomCenterOf(reservedCounterPos.above()));
             counterSearchCooldown = 0;
             return true;
@@ -1148,6 +1174,14 @@ public class CustomerEntity extends PathfinderMob {
         counterTarget = point.getInteractionPosition();
         counterSearchCooldown = 0;
         return true;
+    }
+
+    private Optional<Vec3> getCashRegisterInteractionPosition(BlockPos pos, ServerLevel serverLevel) {
+        var state = serverLevel.getBlockState(pos);
+        if (!state.is(com.restaurantmanager.setup.ModBlocks.CASH_REGISTER.get()) || !state.hasProperty(CashRegisterBlock.FACING)) {
+            return Optional.empty();
+        }
+        return Optional.of(RestaurantSeatingApi.getCounterInteractionPosition(pos, state.getValue(CashRegisterBlock.FACING), serverLevel));
     }
 
     private boolean canLeaveQueueForSeat() {
@@ -1320,6 +1354,22 @@ public class CustomerEntity extends PathfinderMob {
         if (this.distanceToSqr(counterTarget.x, counterTarget.y, counterTarget.z) > 0.5) {
             this.setPos(counterTarget.x, counterTarget.y, counterTarget.z);
         }
+        faceReservedCounter();
+    }
+
+    private void faceReservedCounter() {
+        if (reservedCounterPos == null) {
+            return;
+        }
+
+        Vec3 counterCenter = Vec3.atCenterOf(reservedCounterPos);
+        double dx = counterCenter.x - this.getX();
+        double dz = counterCenter.z - this.getZ();
+        float yaw = (float) (Mth.atan2(dz, dx) * Mth.RAD_TO_DEG) - 90.0F;
+        this.setYRot(yaw);
+        this.yBodyRot = yaw;
+        this.yHeadRot = yaw;
+        this.getLookControl().setLookAt(counterCenter.x, counterCenter.y, counterCenter.z);
     }
 
     private void updateRequestName() {
@@ -1521,6 +1571,25 @@ public class CustomerEntity extends PathfinderMob {
                 customer.waitTimer = 0;
                 customer.updateRequestName();
             }
+        }
+    }
+
+    private static class CustomerRandomStrollGoal extends RandomStrollGoal {
+        private final CustomerEntity customer;
+
+        public CustomerRandomStrollGoal(CustomerEntity customer) {
+            super(customer, 0.6);
+            this.customer = customer;
+        }
+
+        @Override
+        public boolean canUse() {
+            return customer.state != CustomerState.LEAVING && super.canUse();
+        }
+
+        @Override
+        public boolean canContinueToUse() {
+            return customer.state != CustomerState.LEAVING && super.canContinueToUse();
         }
     }
 }

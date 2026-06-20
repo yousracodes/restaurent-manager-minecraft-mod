@@ -1,6 +1,6 @@
 {
   "parent": "minecraft:item/generated",
   "textures": {
-    "layer0": "minecraft:item/lead"
+    "layer0": "restaurantmanager:item/table_link_tool"
   }
 }

@@ -91,6 +91,10 @@ public final class RestaurantSeatingApi {
         markPoint(pos, level, MarkType.DOOR_BELL, getDoorBellTarget(pos, facing, level));
     }
 
+    public static Vec3 getCounterInteractionPosition(BlockPos pos, Direction facing, Level level) {
+        return getCounterTarget(pos, facing, level);
+    }
+
     public static void unmarkDoorBell(BlockPos pos, Level level) {
         if (level instanceof ServerLevel serverLevel && SeatingMarkSavedData.get(serverLevel).isDoorBell(pos)) {
             SeatingMarkSavedData.get(serverLevel).unmark(pos);
@@ -221,7 +225,7 @@ public final class RestaurantSeatingApi {
     }
 
     private static Vec3 getCounterTarget(BlockPos pos, Direction facing, Level level) {
-        BlockPos target = pos.relative(facing);
+        BlockPos target = pos.relative(facing.getOpposite());
         for (int i = 0; i < 3 && target.getY() > level.getMinBuildHeight(); i++) {
             BlockPos below = target.below();
             if (!level.getBlockState(below).isAir()) {
