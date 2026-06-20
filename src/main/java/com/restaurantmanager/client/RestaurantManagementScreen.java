@@ -13,7 +13,21 @@ import net.minecraft.resources.ResourceLocation;
 
 public class RestaurantManagementScreen extends Screen {
     private static final ResourceLocation BACKGROUND = new ResourceLocation("restaurantmanager", "textures/gui/restaurant_management.png");
-    private static final int TEXTURE_SIZE = 1254;
+    private static final int TEXTURE_WIDTH = 1699;
+    private static final int TEXTURE_HEIGHT = 1651;
+    private static final int GUI_SOURCE_X = 232;
+    private static final int GUI_SOURCE_Y = 312;
+    private static final int GUI_SOURCE_WIDTH = 1244;
+    private static final int GUI_SOURCE_HEIGHT = 1164;
+    private static final int TITLE_CENTER_TEXTURE_X = 622;
+    private static final int TITLE_TEXTURE_Y = 72;
+    private static final int STATS_CENTER_TEXTURE_X = 622;
+    private static final int STATS_START_TEXTURE_Y = 428;
+    private static final int NAME_TEXT_COLOR = 0x5A2B13;
+    private static final int PLATE_TEXT_COLOR = 0x5A2B13;
+    private static final int LIGHT_OUTLINE_COLOR = 0xFFE8B4;
+    private static final int BUTTON_TEXT_COLOR = 0xFFF6D5;
+    private static final int BUTTON_OUTLINE_COLOR = 0x4B2412;
 
     private final BlockPos signPos;
     private boolean open;
@@ -31,7 +45,8 @@ public class RestaurantManagementScreen extends Screen {
     private EditBox nameBox;
     private int leftPos;
     private int topPos;
-    private int guiSize;
+    private int guiWidth;
+    private int guiHeight;
     private int menuX;
     private int toggleX;
     private int closeX;
@@ -72,32 +87,38 @@ public class RestaurantManagementScreen extends Screen {
 
     @Override
     protected void init() {
-        this.guiSize = Math.min(360, Math.min(this.width - 20, this.height - 20));
-        this.leftPos = (this.width - this.guiSize) / 2;
-        this.topPos = (this.height - this.guiSize) / 2;
+        this.guiWidth = Math.min(500, this.width - 20);
+        this.guiHeight = this.guiWidth * GUI_SOURCE_HEIGHT / GUI_SOURCE_WIDTH;
+        if (this.guiHeight > this.height - 20) {
+            this.guiHeight = this.height - 20;
+            this.guiWidth = this.guiHeight * GUI_SOURCE_WIDTH / GUI_SOURCE_HEIGHT;
+        }
+        this.leftPos = (this.width - this.guiWidth) / 2;
+        this.topPos = (this.height - this.guiHeight) / 2;
 
-        this.nameBox = new EditBox(this.font, textureX(245), textureY(90), textureWidth(755), 18, Component.literal("Restaurant Name"));
+        this.nameBox = new EditBox(this.font, textureX(205), textureY(TITLE_TEXTURE_Y), textureWidth(834), 18, Component.literal("Restaurant Name"));
         this.nameBox.setValue(this.restaurantName);
         this.nameBox.setMaxLength(32);
         this.nameBox.setBordered(false);
-        this.nameBox.setTextColor(0xFFF2D2);
+        this.nameBox.setTextColor(NAME_TEXT_COLOR);
         this.addRenderableWidget(this.nameBox);
 
-        this.menuX = textureX(120);
-        this.toggleX = textureX(460);
+        this.menuX = textureX(112);
+        this.toggleX = textureX(456);
         this.closeX = textureX(800);
-        this.buttonY = textureY(895);
-        this.buttonWidth = textureWidth(330);
-        this.buttonHeight = textureHeight(145);
+        this.buttonY = textureY(884);
+        this.buttonWidth = textureWidth(320);
+        this.buttonHeight = textureHeight(124);
     }
 
     @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
         this.renderBackground(graphics);
-        graphics.blit(BACKGROUND, this.leftPos, this.topPos, this.guiSize, this.guiSize,
-                0.0F, 0.0F, TEXTURE_SIZE, TEXTURE_SIZE, TEXTURE_SIZE, TEXTURE_SIZE);
+        graphics.blit(BACKGROUND, this.leftPos, this.topPos, this.guiWidth, this.guiHeight,
+                GUI_SOURCE_X, GUI_SOURCE_Y, GUI_SOURCE_WIDTH, GUI_SOURCE_HEIGHT, TEXTURE_WIDTH, TEXTURE_HEIGHT);
 
-        this.nameBox.render(graphics, mouseX, mouseY, partialTick);
+        drawCenteredOutlined(graphics, this.nameBox.getValue().isBlank() ? "Restaurant" : this.nameBox.getValue(),
+                textureX(TITLE_CENTER_TEXTURE_X), textureY(TITLE_TEXTURE_Y), NAME_TEXT_COLOR, LIGHT_OUTLINE_COLOR);
         drawStats(graphics);
         drawButtonLabel(graphics, this.menuX, this.buttonY, this.buttonWidth, this.buttonHeight, "Menus", mouseX, mouseY);
         drawButtonLabel(graphics, this.toggleX, this.buttonY, this.buttonWidth, this.buttonHeight,
@@ -106,18 +127,18 @@ public class RestaurantManagementScreen extends Screen {
     }
 
     private void drawStats(GuiGraphics graphics) {
-        int centerX = textureX(627);
-        int y = textureY(465);
-        drawCenteredLight(graphics, "Owner: " + ownerName, centerX, y);
-        drawCenteredLight(graphics, "Stars: " + starRating + "/5   Rep: " + reputation, centerX, y + 12);
-        drawCenteredLight(graphics, "Served: " + customersServed + "   Earned: " + moneyEarned, centerX, y + 24);
-        drawCenteredLight(graphics, "Orders: " + ordersCompleted + " OK / " + ordersFailed + " Failed", centerX, y + 36);
-        drawCenteredLight(graphics, "Lost: " + customersLost, centerX, y + 48);
+        int centerX = textureX(STATS_CENTER_TEXTURE_X);
+        int y = textureY(STATS_START_TEXTURE_Y);
+        drawCenteredOutlined(graphics, "Owner: " + ownerName, centerX, y, PLATE_TEXT_COLOR, LIGHT_OUTLINE_COLOR);
+        drawCenteredOutlined(graphics, "Stars: " + starRating + "/5   Rep: " + reputation, centerX, y + 12, PLATE_TEXT_COLOR, LIGHT_OUTLINE_COLOR);
+        drawCenteredOutlined(graphics, "Served: " + customersServed + "   Earned: " + moneyEarned, centerX, y + 24, PLATE_TEXT_COLOR, LIGHT_OUTLINE_COLOR);
+        drawCenteredOutlined(graphics, "Orders: " + ordersCompleted + " OK / " + ordersFailed + " Failed", centerX, y + 36, PLATE_TEXT_COLOR, LIGHT_OUTLINE_COLOR);
+        drawCenteredOutlined(graphics, "Lost: " + customersLost, centerX, y + 48, PLATE_TEXT_COLOR, LIGHT_OUTLINE_COLOR);
     }
 
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
-        if (button == 1 && isInside(mouseX, mouseY, textureX(235), textureY(78), textureWidth(775), textureHeight(95))) {
+        if (button == 1 && isInside(mouseX, mouseY, textureX(190), textureY(10), textureWidth(864), textureHeight(160))) {
             this.nameBox.setFocused(true);
             return true;
         }
@@ -154,12 +175,17 @@ public class RestaurantManagementScreen extends Screen {
         if (isInside(mouseX, mouseY, x, y, width, height)) {
             graphics.fill(x + 6, y + 6, x + width - 6, y + height - 6, 0x22FFFFFF);
         }
-        drawCenteredLight(graphics, label, x + width / 2, y + height / 2 - 4);
+        drawCenteredOutlined(graphics, label, x + width / 2, y + height / 2 - 4, BUTTON_TEXT_COLOR, BUTTON_OUTLINE_COLOR);
     }
 
-    private void drawCenteredLight(GuiGraphics graphics, String text, int centerX, int y) {
-        graphics.drawCenteredString(this.font, Component.literal(text), centerX + 1, y + 1, 0x6B3F1D);
-        graphics.drawCenteredString(this.font, Component.literal(text), centerX, y, 0xFFF2D2);
+    private void drawCenteredOutlined(GuiGraphics graphics, String text, int centerX, int y, int textColor, int outlineColor) {
+        Component component = Component.literal(text);
+        graphics.drawCenteredString(this.font, component, centerX - 1, y, outlineColor);
+        graphics.drawCenteredString(this.font, component, centerX + 1, y, outlineColor);
+        graphics.drawCenteredString(this.font, component, centerX, y - 1, outlineColor);
+        graphics.drawCenteredString(this.font, component, centerX, y + 1, outlineColor);
+        graphics.drawCenteredString(this.font, component, centerX + 1, y + 1, outlineColor);
+        graphics.drawCenteredString(this.font, component, centerX, y, textColor);
     }
 
     public BlockPos getSignPos() {
@@ -199,19 +225,19 @@ public class RestaurantManagementScreen extends Screen {
     }
 
     private int textureX(int textureX) {
-        return this.leftPos + textureX * this.guiSize / TEXTURE_SIZE;
+        return this.leftPos + textureX * this.guiWidth / GUI_SOURCE_WIDTH;
     }
 
     private int textureY(int textureY) {
-        return this.topPos + textureY * this.guiSize / TEXTURE_SIZE;
+        return this.topPos + textureY * this.guiHeight / GUI_SOURCE_HEIGHT;
     }
 
     private int textureWidth(int textureWidth) {
-        return textureWidth * this.guiSize / TEXTURE_SIZE;
+        return textureWidth * this.guiWidth / GUI_SOURCE_WIDTH;
     }
 
     private int textureHeight(int textureHeight) {
-        return textureHeight * this.guiSize / TEXTURE_SIZE;
+        return textureHeight * this.guiHeight / GUI_SOURCE_HEIGHT;
     }
 
     private boolean isInside(double mouseX, double mouseY, int x, int y, int width, int height) {

@@ -25,6 +25,12 @@ public class CustomerConversationScreen extends Screen {
     private static final int TEXTURE_HEIGHT = 1122;
     private static final int TAKEOUT_TEXTURE_WIDTH = 1792;
     private static final int TAKEOUT_TEXTURE_HEIGHT = 1285;
+    private static final int ITEM_RENDER_SIZE = 16;
+    private static final int TAKEOUT_PACKAGE_SLOT_CENTER_X = 433;
+    private static final int TAKEOUT_PACKAGE_SLOT_CENTER_Y = 715;
+    private static final int TAKEOUT_ORDER_ICON_CENTER_X = 696;
+    private static final int TAKEOUT_ORDER_ICON_CENTER_Y = 594;
+    private static final int TAKEOUT_ORDER_ROW_SPACING = 147;
     private static final String[] TAKEOUT_DIALOG_LINES = {
             "I'm starving... I need:",
             "I've been craving this all day:",
@@ -242,12 +248,12 @@ public class CustomerConversationScreen extends Screen {
 
     private void renderTakeoutPackageSlot(GuiGraphics graphics, int mouseX, int mouseY) {
         ItemStack packageStack = getHeldServingContainer();
-        int x = takeoutX(454);
-        int y = takeoutY(704);
+        int x = takeoutCenteredItemX(TAKEOUT_PACKAGE_SLOT_CENTER_X);
+        int y = takeoutCenteredItemY(TAKEOUT_PACKAGE_SLOT_CENTER_Y);
         if (!packageStack.isEmpty()) {
             graphics.renderItem(packageStack, x, y);
             graphics.renderItemDecorations(this.font, packageStack, x, y);
-            if (isInside(mouseX, mouseY, x, y, 18, 18)) {
+            if (isInside(mouseX, mouseY, x, y, ITEM_RENDER_SIZE, ITEM_RENDER_SIZE)) {
                 graphics.renderTooltip(this.font, packageStack, mouseX, mouseY);
             }
         }
@@ -257,8 +263,8 @@ public class CustomerConversationScreen extends Screen {
         List<String> names = getTakeoutOrderNames();
         List<ItemStack> items = getTakeoutOrderItems();
         for (int row = 0; row < 3; row++) {
-            int iconX = takeoutX(659);
-            int iconY = takeoutY(560 + row * 147);
+            int iconX = takeoutCenteredItemX(TAKEOUT_ORDER_ICON_CENTER_X);
+            int iconY = takeoutCenteredItemY(TAKEOUT_ORDER_ICON_CENTER_Y + row * TAKEOUT_ORDER_ROW_SPACING);
             int textX = takeoutX(735);
             int textY = takeoutY(575 + row * 147);
             int statusX = takeoutX(1365);
@@ -269,7 +275,7 @@ public class CustomerConversationScreen extends Screen {
                 ItemStack stack = items.get(row);
                 graphics.renderItem(stack, iconX, iconY);
                 graphics.renderItemDecorations(this.font, stack, iconX, iconY);
-                if (isInside(mouseX, mouseY, iconX, iconY, 18, 18)) {
+                if (isInside(mouseX, mouseY, iconX, iconY, ITEM_RENDER_SIZE, ITEM_RENDER_SIZE)) {
                     graphics.renderTooltip(this.font, stack, mouseX, mouseY);
                 }
             }
@@ -548,6 +554,14 @@ public class CustomerConversationScreen extends Screen {
 
     private int takeoutHeight(int textureHeight) {
         return textureHeight * this.guiHeight / TAKEOUT_TEXTURE_HEIGHT;
+    }
+
+    private int takeoutCenteredItemX(int textureCenterX) {
+        return takeoutX(textureCenterX) - ITEM_RENDER_SIZE / 2;
+    }
+
+    private int takeoutCenteredItemY(int textureCenterY) {
+        return takeoutY(textureCenterY) - ITEM_RENDER_SIZE / 2;
     }
 
     @Override

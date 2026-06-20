@@ -77,6 +77,7 @@ public class RestaurantSignBlock extends Block implements EntityBlock {
                     manager.addRestaurant(value);
                 }
                 setSignRestaurantId(level, pos, value.getId());
+                manager.refreshLayoutBlocks(value, serverLevel);
                 if (!value.hasOwner()) {
                     value.setIdentity(player.getName().getString() + "'s Restaurant", player.getUUID(), player.getName().getString());
                     manager.setDirty();

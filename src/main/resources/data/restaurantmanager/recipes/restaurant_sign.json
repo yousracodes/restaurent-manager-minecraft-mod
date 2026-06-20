@@ -1,19 +1,16 @@
 {
   "type": "minecraft:crafting_shaped",
   "pattern": [
-    "WSW",
-    "SPS",
-    "WSW"
+    "PPP",
+    " S ",
+    " S "
   ],
   "key": {
-    "W": {
-      "tag": "minecraft:logs"
+    "P": {
+      "tag": "minecraft:planks"
     },
     "S": {
       "item": "minecraft:stick"
-    },
-    "P": {
-      "item": "minecraft:paper"
     }
   },
   "result": {

@@ -35,9 +35,9 @@ public class PlateMenu extends AbstractContainerMenu {
 
         PlateItem.loadFoods(inventory.player.getItemInHand(hand), plateContainer);
 
-        addSlot(new FoodSlot(plateContainer, 0, 57, 75));
-        addSlot(new FoodSlot(plateContainer, 1, 121, 75));
-        addSlot(new FoodSlot(plateContainer, 2, 185, 75));
+        addSlot(new FoodSlot(plateContainer, 0, 59, 63));
+        addSlot(new FoodSlot(plateContainer, 1, 121, 63));
+        addSlot(new FoodSlot(plateContainer, 2, 183, 63));
 
         for (int row = 0; row < 3; row++) {
             for (int column = 0; column < 9; column++) {

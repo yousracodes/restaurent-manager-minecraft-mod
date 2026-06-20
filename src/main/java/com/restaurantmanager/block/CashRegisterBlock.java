@@ -37,7 +37,7 @@ public class CashRegisterBlock extends HorizontalDirectionalBlock {
         if (!oldState.is(state.getBlock())) {
             if (level instanceof ServerLevel serverLevel
                     && RestaurantManager.get(serverLevel).assignCounter(pos).isPresent()) {
-                RestaurantSeatingApi.markCounter(pos, level);
+                RestaurantSeatingApi.markCounter(pos, state.getValue(FACING), level);
             }
         }
     }

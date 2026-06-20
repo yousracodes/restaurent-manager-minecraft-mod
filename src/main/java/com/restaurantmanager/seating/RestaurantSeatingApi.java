@@ -57,6 +57,10 @@ public final class RestaurantSeatingApi {
         markPoint(pos, level, MarkType.COUNTER, Vec3.atBottomCenterOf(pos.relative(Direction.UP)));
     }
 
+    public static void markCounter(BlockPos pos, Direction facing, Level level) {
+        markPoint(pos, level, MarkType.COUNTER, getCounterTarget(pos, facing, level));
+    }
+
     public static void unmarkCounter(BlockPos pos, Level level) {
         if (level instanceof ServerLevel serverLevel && SeatingMarkSavedData.get(serverLevel).isCounter(pos)) {
             SeatingMarkSavedData.get(serverLevel).unmark(pos);
@@ -214,6 +218,18 @@ public final class RestaurantSeatingApi {
             target = below;
         }
         return Vec3.atBottomCenterOf(pos);
+    }
+
+    private static Vec3 getCounterTarget(BlockPos pos, Direction facing, Level level) {
+        BlockPos target = pos.relative(facing);
+        for (int i = 0; i < 3 && target.getY() > level.getMinBuildHeight(); i++) {
+            BlockPos below = target.below();
+            if (!level.getBlockState(below).isAir()) {
+                return Vec3.atBottomCenterOf(target);
+            }
+            target = below;
+        }
+        return Vec3.atBottomCenterOf(pos.relative(Direction.UP));
     }
 
     private static Vec3 computeSeatPosition(BlockPos pos, Level level) {

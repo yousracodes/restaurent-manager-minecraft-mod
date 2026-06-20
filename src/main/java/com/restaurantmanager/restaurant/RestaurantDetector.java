@@ -26,6 +26,7 @@ public class RestaurantDetector {
             Restaurant restaurant = found.get();
             if (!manager.overlaps(restaurant.getBounds())) {
                 manager.addRestaurant(restaurant);
+                manager.refreshLayoutBlocks(restaurant, level);
                 level.sendBlockUpdated(signPos, level.getBlockState(signPos), level.getBlockState(signPos), 3);
                 return Optional.of(restaurant);
             }

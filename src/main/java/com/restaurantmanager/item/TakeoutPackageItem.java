@@ -2,6 +2,7 @@ package com.restaurantmanager.item;
 
 import com.restaurantmanager.entity.CustomerEntity;
 import com.restaurantmanager.menu.TakeoutPackageMenu;
+import net.minecraft.ChatFormatting;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
@@ -16,9 +17,11 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.SimpleMenuProvider;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.TooltipFlag;
 import net.minecraft.world.level.Level;
 import net.minecraftforge.network.NetworkHooks;
 
+import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -63,6 +66,22 @@ public class TakeoutPackageItem extends Item {
             );
         }
         return InteractionResultHolder.consume(packageStack);
+    }
+
+    @Override
+    public void appendHoverText(ItemStack stack, @Nullable Level level, List<Component> tooltip, TooltipFlag flag) {
+        List<ItemStack> foods = getFoods(stack);
+        if (foods.isEmpty()) {
+            tooltip.add(Component.literal("Empty package").withStyle(ChatFormatting.GRAY));
+            return;
+        }
+
+        tooltip.add(Component.literal("Contains:").withStyle(ChatFormatting.GRAY));
+        for (ItemStack food : foods) {
+            tooltip.add(Component.literal("- ")
+                    .append(food.getHoverName())
+                    .withStyle(ChatFormatting.YELLOW));
+        }
     }
 
     public static boolean hasFood(ItemStack stack) {

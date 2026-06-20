@@ -1,13 +1,19 @@
 package com.restaurantmanager.restaurant;
 
 import com.restaurantmanager.RestaurantManagerMod;
+import com.restaurantmanager.block.CashRegisterBlock;
+import com.restaurantmanager.block.DoorBellBlock;
+import com.restaurantmanager.setup.ModBlocks;
+import com.restaurantmanager.seating.RestaurantSeatingApi;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.NbtUtils;
 import net.minecraft.nbt.Tag;
+import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.saveddata.SavedData;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
@@ -19,6 +25,7 @@ import java.util.UUID;
 
 public class RestaurantManager extends SavedData {
     private static final String KEY = "restaurant_manager_restaurants";
+    private static final double LAYOUT_BIND_RANGE = 6.0;
     private final List<Restaurant> restaurants = new ArrayList<>();
 
     public static RestaurantManager get(ServerLevel level) {
@@ -80,7 +87,7 @@ public class RestaurantManager extends SavedData {
         Vec3 center = Vec3.atCenterOf(pos);
         return restaurants.stream()
                 .filter(Restaurant::isActive)
-                .filter(restaurant -> restaurant.getBounds().inflate(2.0).contains(
+                .filter(restaurant -> restaurant.getBounds().inflate(LAYOUT_BIND_RANGE).contains(
                         center.x,
                         center.y,
                         center.z
@@ -89,6 +96,67 @@ public class RestaurantManager extends SavedData {
                         first.getBounds().getCenter().distanceToSqr(center),
                         second.getBounds().getCenter().distanceToSqr(center)
                 ));
+    }
+
+    public void refreshLayoutBlocks(Restaurant restaurant, ServerLevel level) {
+        if (restaurant == null || !restaurant.isActive()) {
+            return;
+        }
+
+        Vec3 center = restaurant.getBounds().getCenter();
+        AABB searchBounds = restaurant.getBounds().inflate(LAYOUT_BIND_RANGE);
+        BlockPos min = BlockPos.containing(searchBounds.minX, searchBounds.minY, searchBounds.minZ);
+        BlockPos max = BlockPos.containing(searchBounds.maxX, searchBounds.maxY, searchBounds.maxZ);
+
+        BlockPos nearestDoorBell = null;
+        BlockState nearestDoorBellState = null;
+        double nearestDoorBellDistance = Double.MAX_VALUE;
+        BlockPos nearestCounter = null;
+        BlockState nearestCounterState = null;
+        double nearestCounterDistance = Double.MAX_VALUE;
+
+        for (BlockPos pos : BlockPos.betweenClosed(min, max)) {
+            BlockState state = level.getBlockState(pos);
+            if (state.is(ModBlocks.DOOR_BELL.get()) && belongsToRestaurant(pos, restaurant)) {
+                double distance = Vec3.atCenterOf(pos).distanceToSqr(center);
+                if (distance < nearestDoorBellDistance) {
+                    nearestDoorBell = pos.immutable();
+                    nearestDoorBellState = state;
+                    nearestDoorBellDistance = distance;
+                }
+            } else if (state.is(ModBlocks.CASH_REGISTER.get()) && belongsToRestaurant(pos, restaurant)) {
+                double distance = Vec3.atCenterOf(pos).distanceToSqr(center);
+                if (distance < nearestCounterDistance) {
+                    nearestCounter = pos.immutable();
+                    nearestCounterState = state;
+                    nearestCounterDistance = distance;
+                }
+            }
+        }
+
+        if (nearestDoorBell != null) {
+            restaurant.setDoorBellPos(nearestDoorBell);
+            Direction facing = nearestDoorBellState != null && nearestDoorBellState.hasProperty(DoorBellBlock.FACING)
+                    ? nearestDoorBellState.getValue(DoorBellBlock.FACING)
+                    : Direction.NORTH;
+            RestaurantSeatingApi.markDoorBell(nearestDoorBell, facing, level);
+        }
+        if (nearestCounter != null) {
+            restaurant.setCounterPos(nearestCounter);
+            Direction facing = nearestCounterState != null && nearestCounterState.hasProperty(CashRegisterBlock.FACING)
+                    ? nearestCounterState.getValue(CashRegisterBlock.FACING)
+                    : Direction.NORTH;
+            RestaurantSeatingApi.markCounter(nearestCounter, facing, level);
+        }
+        if (nearestDoorBell != null || nearestCounter != null) {
+            setDirty();
+        }
+    }
+
+    private boolean belongsToRestaurant(BlockPos pos, Restaurant restaurant) {
+        return findForLayoutBlock(pos)
+                .map(owner -> owner.getId().equals(restaurant.getId()))
+                .orElse(false);
     }
 
     public Optional<Restaurant> findForDoorBell(BlockPos bellPos) {
