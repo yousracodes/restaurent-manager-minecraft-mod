@@ -9,6 +9,7 @@ import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.phys.AABB;
 import net.minecraftforge.network.NetworkEvent;
 
@@ -64,13 +65,15 @@ public class ToggleRestaurantOpenPacket {
     private static int makeAssignedCustomersLeave(ServerLevel level, Restaurant restaurant) {
         AABB searchBounds = restaurant.getBounds().inflate(128.0);
         int count = 0;
-        for (CustomerEntity customer : level.getEntities(
-                ModEntities.CUSTOMER.get(),
-                searchBounds,
-                customer -> restaurant.getId().equals(customer.getRestaurantId())
-        )) {
-            customer.leaveBecauseRestaurantClosed();
-            count++;
+        for (EntityType<? extends CustomerEntity> customerType : ModEntities.customerTypes()) {
+            for (CustomerEntity customer : level.getEntities(
+                    customerType,
+                    searchBounds,
+                    customer -> restaurant.getId().equals(customer.getRestaurantId())
+            )) {
+                customer.leaveBecauseRestaurantClosed();
+                count++;
+            }
         }
         return count;
     }

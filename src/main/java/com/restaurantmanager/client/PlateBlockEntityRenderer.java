@@ -17,9 +17,9 @@ import java.util.List;
 
 public class PlateBlockEntityRenderer implements BlockEntityRenderer<PlateBlockEntity> {
     private static final double[][] SLOT_POSITIONS = {
-            {0.33, 0.18, 0.38, -18.0},
-            {0.50, 0.19, 0.52, 6.0},
-            {0.67, 0.18, 0.38, 22.0}
+            {0.38, 0.15, 0.40, -18.0},
+            {0.50, 0.16, 0.54, 6.0},
+            {0.62, 0.15, 0.40, 22.0}
     };
 
     private final ItemRenderer itemRenderer;
@@ -51,7 +51,7 @@ public class PlateBlockEntityRenderer implements BlockEntityRenderer<PlateBlockE
         poseStack.pushPose();
         poseStack.translate(position[0], position[1], position[2]);
         poseStack.mulPose(new Quaternionf().rotationXYZ((float) Math.toRadians(90.0), 0.0F, (float) Math.toRadians(position[3])));
-        poseStack.scale(0.32F, 0.32F, 0.32F);
+        poseStack.scale(0.28F, 0.28F, 0.28F);
         itemRenderer.renderStatic(
                 meal,
                 ItemDisplayContext.FIXED,

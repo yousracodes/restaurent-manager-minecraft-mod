@@ -8,6 +8,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.MobSpawnType;
+import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.AABB;
 import net.minecraftforge.event.TickEvent;
@@ -21,6 +22,7 @@ public class CustomerSpawnEvents {
     private static final Random RANDOM = new Random();
     private static final int SPAWN_CHECK_INTERVAL_TICKS = 20 * 15;
     private static final double ACTIVE_PLAYER_RADIUS = 128.0;
+    private static final int TAKEOUT_CHANCE_PERCENT = 30;
 
     @SubscribeEvent
     public void onServerTick(TickEvent.ServerTickEvent event) {
@@ -58,7 +60,10 @@ public class CustomerSpawnEvents {
         if (spawnPos.isEmpty()) {
             return;
         }
-        CustomerEntity customer = ModEntities.CUSTOMER.get().spawn(level, spawnPos.get(), MobSpawnType.TRIGGERED);
+        EntityType<? extends CustomerEntity> customerType = RANDOM.nextInt(100) < TAKEOUT_CHANCE_PERCENT
+                ? ModEntities.TAKEOUT_CUSTOMER.get()
+                : ModEntities.DINE_IN_CUSTOMER.get();
+        CustomerEntity customer = customerType.spawn(level, spawnPos.get(), MobSpawnType.TRIGGERED);
         if (customer != null) {
             customer.assignRestaurant(restaurant);
         }
@@ -84,11 +89,15 @@ public class CustomerSpawnEvents {
 
     private int countCustomersForRestaurant(ServerLevel level, Restaurant restaurant) {
         AABB searchBounds = restaurant.getBounds().inflate(96.0);
-        return level.getEntities(
-                ModEntities.CUSTOMER.get(),
-                searchBounds,
-                customer -> restaurant.getId().equals(customer.getRestaurantId())
-        ).size();
+        int count = 0;
+        for (EntityType<? extends CustomerEntity> customerType : ModEntities.customerTypes()) {
+            count += level.getEntities(
+                    customerType,
+                    searchBounds,
+                    customer -> restaurant.getId().equals(customer.getRestaurantId())
+            ).size();
+        }
+        return count;
     }
 
     private int getCustomerCap(int stars) {

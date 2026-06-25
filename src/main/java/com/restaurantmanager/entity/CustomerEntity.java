@@ -62,66 +62,72 @@ import java.util.Optional;
 import java.util.Random;
 import java.util.UUID;
 
-public class CustomerEntity extends PathfinderMob {
+public abstract class CustomerEntity extends PathfinderMob {
     private static final EntityDataAccessor<String> ORDER_SUMMARY =
             SynchedEntityData.defineId(CustomerEntity.class, EntityDataSerializers.STRING);
     private static final EntityDataAccessor<String> ORDER_ITEM_IDS =
             SynchedEntityData.defineId(CustomerEntity.class, EntityDataSerializers.STRING);
     private static final EntityDataAccessor<String> SYNCED_SERVICE_TYPE =
             SynchedEntityData.defineId(CustomerEntity.class, EntityDataSerializers.STRING);
+    private static final EntityDataAccessor<String> SYNCED_STATE =
+            SynchedEntityData.defineId(CustomerEntity.class, EntityDataSerializers.STRING);
+    private static final EntityDataAccessor<String> SYNCED_PATIENCE =
+            SynchedEntityData.defineId(CustomerEntity.class, EntityDataSerializers.STRING);
     private static final EntityDataAccessor<Integer> ORDER_START_INDEX =
             SynchedEntityData.defineId(CustomerEntity.class, EntityDataSerializers.INT);
     private static final Random REQUEST_RANDOM = new Random();
     private static final int TICKS_PER_MINUTE = 20 * 60;
-    private static final int HAPPY_TO_NEUTRAL_TICKS = TICKS_PER_MINUTE * 15;
-    private static final int NEUTRAL_TO_IMPATIENT_TICKS = TICKS_PER_MINUTE * 25;
-    private static final int IMPATIENT_TO_ANGRY_TICKS = TICKS_PER_MINUTE * 35;
-    private static final int ANGRY_TO_LEAVE_TICKS = TICKS_PER_MINUTE * 45;
-    private static final int NO_SEAT_TO_IMPATIENT_TICKS = TICKS_PER_MINUTE * 5;
-    private static final int NO_SEAT_TO_LEAVE_TICKS = TICKS_PER_MINUTE * 10;
-    private static final int EATING_TICKS = 20 * 2;
-    private static final int PLATE_SCAN_INTERVAL = 20;
-    private static final int TAKEOUT_CHANCE_PERCENT = 30;
-    private static final int TAKEOUT_NEGOTIATION_CHANCE_PERCENT = 20;
-    private static final int STAR_PRICE_STEP_PERCENT = 25;
+    private static final int HAPPY_TO_NEUTRAL_TICKS = TICKS_PER_MINUTE * 8;
+    private static final int NEUTRAL_TO_IMPATIENT_TICKS = TICKS_PER_MINUTE * 18;
+    private static final int IMPATIENT_TO_ANGRY_TICKS = TICKS_PER_MINUTE * 28;
+    protected static final int ANGRY_TO_LEAVE_TICKS = TICKS_PER_MINUTE * 38;
+    protected static final int NO_SEAT_TO_IMPATIENT_TICKS = 0;
+    protected static final int NO_SEAT_TO_LEAVE_TICKS = TICKS_PER_MINUTE * 3;
+    protected static final int EATING_TICKS = 20 * 10;
+    protected static final int PLATE_SCAN_INTERVAL = 20;
+    protected static final int TAKEOUT_NEGOTIATION_CHANCE_PERCENT = 20;
+    protected static final int STAR_PRICE_STEP_PERCENT = 25;
     private static final int CLOSED_RESTAURANT_DESPAWN_TICKS = TICKS_PER_MINUTE;
     private static final int CLOSED_RESTAURANT_SEARCH_INTERVAL = 20 * 5;
     private static final int RESTAURANT_SEARCH_INTERVAL = 20;
-    private static final int RESERVATION_SEARCH_INTERVAL = 10;
+    protected static final int RESERVATION_SEARCH_INTERVAL = 10;
     private static final double LEAVING_REACHED_DISTANCE_SQR = 1.5;
 
-    private final List<FoodRequest> requests = new ArrayList<>();
-    private int currentRequestIndex;
+    protected final List<FoodRequest> requests = new ArrayList<>();
+    protected int currentRequestIndex;
     private UUID restaurantId;
-    private Restaurant restaurant;
-    private CustomerState state = CustomerState.SPAWN;
-    private CustomerServiceType serviceType = CustomerServiceType.DINE_IN;
+    protected Restaurant restaurant;
+    protected CustomerState state = CustomerState.SPAWN;
+    protected CustomerServiceType serviceType = CustomerServiceType.DINE_IN;
     private CustomerServiceType forcedServiceType;
     private CustomerPatience patience = CustomerPatience.HAPPY;
-    private int waitTimer;
-    private int noSeatWaitTimer;
-    private int eatingTimer;
-    private int plateScanTimer;
-    private int wrongOrderCooldown;
+    protected int waitTimer;
+    protected int noSeatWaitTimer;
+    protected int eatingTimer;
+    protected int plateScanTimer;
+    protected int wrongOrderCooldown;
     private int closedRestaurantLeaveTimer;
     private int restaurantSearchCooldown;
-    private int seatSearchCooldown;
-    private int counterSearchCooldown;
+    protected int seatSearchCooldown;
+    protected int counterSearchCooldown;
     private boolean leavingClosedRestaurant;
-    private BlockPos reservedSeatPos;
-    private BlockPos reservedQueuePos;
-    private BlockPos reservedCounterPos;
-    private BlockPos assignedTablePos;
-    private BlockPos servedPlatePos;
+    protected BlockPos reservedSeatPos;
+    protected BlockPos reservedQueuePos;
+    protected BlockPos reservedCounterPos;
+    protected BlockPos assignedTablePos;
+    protected BlockPos servedPlatePos;
     private Vec3 entranceTarget;
     private Vec3 exitTarget;
-    private Vec3 seatTarget;
-    private Vec3 queueTarget;
-    private Vec3 counterTarget;
+    protected Vec3 seatTarget;
+    protected Vec3 queueTarget;
+    protected Vec3 counterTarget;
 
     public CustomerEntity(EntityType<? extends PathfinderMob> type, Level world) {
         super(type, world);
+        this.serviceType = getConfiguredServiceType();
     }
+
+    protected abstract CustomerServiceType getConfiguredServiceType();
 
     @Override
     protected PathNavigation createNavigation(Level level) {
@@ -135,7 +141,9 @@ public class CustomerEntity extends PathfinderMob {
         super.defineSynchedData();
         this.entityData.define(ORDER_SUMMARY, "");
         this.entityData.define(ORDER_ITEM_IDS, "");
-        this.entityData.define(SYNCED_SERVICE_TYPE, CustomerServiceType.DINE_IN.name());
+        this.entityData.define(SYNCED_SERVICE_TYPE, getConfiguredServiceType().name());
+        this.entityData.define(SYNCED_STATE, CustomerState.SPAWN.name());
+        this.entityData.define(SYNCED_PATIENCE, CustomerPatience.HAPPY.name());
         this.entityData.define(ORDER_START_INDEX, 0);
     }
 
@@ -208,7 +216,7 @@ public class CustomerEntity extends PathfinderMob {
         reservedCounterPos = compound.contains("ReservedCounter") ? NbtUtils.readBlockPos(compound.getCompound("ReservedCounter")) : null;
         assignedTablePos = compound.contains("AssignedTable") ? NbtUtils.readBlockPos(compound.getCompound("AssignedTable")) : null;
         servedPlatePos = compound.contains("ServedPlate") ? NbtUtils.readBlockPos(compound.getCompound("ServedPlate")) : null;
-        seatTarget = reservedSeatPos == null ? null : Vec3.atCenterOf(reservedSeatPos);
+        seatTarget = reservedSeatPos == null ? null : getSeatTarget(reservedSeatPos);
         queueTarget = reservedQueuePos == null ? null : Vec3.atBottomCenterOf(reservedQueuePos);
         counterTarget = reservedCounterPos == null ? null : Vec3.atBottomCenterOf(reservedCounterPos.above());
         updateRequestName();
@@ -273,6 +281,17 @@ public class CustomerEntity extends PathfinderMob {
         }
     }
 
+    private CustomerPatience readPatience(String savedPatience) {
+        if (savedPatience == null || savedPatience.isBlank()) {
+            return CustomerPatience.HAPPY;
+        }
+        try {
+            return CustomerPatience.valueOf(savedPatience);
+        } catch (IllegalArgumentException exception) {
+            return CustomerPatience.HAPPY;
+        }
+    }
+
     @Override
     protected void registerGoals() {
         this.goalSelector.addGoal(0, new FloatGoal(this));
@@ -289,6 +308,11 @@ public class CustomerEntity extends PathfinderMob {
         super.tick();
         if (!this.level().isClientSide()) {
             handleState();
+            if (!shouldStaySeated()) {
+                this.noPhysics = false;
+            }
+            syncState();
+            syncPatience();
         }
     }
 
@@ -308,15 +332,14 @@ public class CustomerEntity extends PathfinderMob {
         }
 
         if (state == CustomerState.SPAWN && restaurant != null) {
-            chooseServiceType();
+            setConfiguredServiceType();
             createRequests();
             state = serviceType == CustomerServiceType.TAKEOUT ? CustomerState.MOVING_TO_COUNTER : CustomerState.ENTERING;
             resetPatience();
         }
 
-        if (state == CustomerState.REQUESTING || state == CustomerState.WAITING_FOR_PLATE || state == CustomerState.WAITING_FOR_PACKAGE) {
+        if (state == CustomerState.REQUESTING || state == CustomerState.WAITING_FOR_PLATE) {
             holdSeatPosition();
-            holdCounterPosition();
             waitTimer++;
             if (wrongOrderCooldown > 0) {
                 wrongOrderCooldown--;
@@ -325,6 +348,18 @@ public class CustomerEntity extends PathfinderMob {
             if (state == CustomerState.WAITING_FOR_PLATE) {
                 scanForPlateMeal();
             }
+            if (waitTimer >= ANGRY_TO_LEAVE_TICKS) {
+                leaveUnserved("Leaving: waited too long.");
+            }
+        }
+
+        if (state == CustomerState.WAITING_FOR_PACKAGE) {
+            holdCounterPosition();
+            waitTimer++;
+            if (wrongOrderCooldown > 0) {
+                wrongOrderCooldown--;
+            }
+            updateFoodWaitPatience();
             if (waitTimer >= ANGRY_TO_LEAVE_TICKS) {
                 leaveUnserved("Leaving: waited too long.");
             }
@@ -353,10 +388,6 @@ public class CustomerEntity extends PathfinderMob {
             updateRequestName();
         }
 
-        if (state == CustomerState.WAITING_FOR_PACKAGE) {
-            holdCounterPosition();
-        }
-
         if (state == CustomerState.EATING) {
             holdSeatPosition();
             eatingTimer++;
@@ -373,6 +404,7 @@ public class CustomerEntity extends PathfinderMob {
         if (state == CustomerState.PAYING) {
             leavingClosedRestaurant = false;
             closedRestaurantLeaveTimer = 0;
+            prepareToLeave();
             state = CustomerState.LEAVING;
             this.setCustomName(Component.literal("Leaving"));
             this.setCustomNameVisible(true);
@@ -487,7 +519,7 @@ public class CustomerEntity extends PathfinderMob {
         }
     }
 
-    private int staggeredCooldown(int interval) {
+    protected int staggeredCooldown(int interval) {
         return interval + Math.floorMod(this.getId(), interval);
     }
 
@@ -527,6 +559,7 @@ public class CustomerEntity extends PathfinderMob {
         if (state == CustomerState.LEAVING) {
             return;
         }
+        prepareToLeave();
         releaseAllReservations();
         if (state == CustomerState.SERVED || state == CustomerState.PAYING) {
             state = CustomerState.LEAVING;
@@ -565,8 +598,35 @@ public class CustomerEntity extends PathfinderMob {
         return CustomerServiceType.TAKEOUT.name().equals(this.entityData.get(SYNCED_SERVICE_TYPE));
     }
 
+    public boolean isSeatedForRendering() {
+        CustomerState syncedState = readState(this.entityData.get(SYNCED_STATE));
+        return !isTakeoutCustomer()
+                && (syncedState == CustomerState.SEATED
+                || syncedState == CustomerState.REQUESTING
+                || syncedState == CustomerState.WAITING_FOR_PLATE
+                || syncedState == CustomerState.EATING);
+    }
+
+    public CustomerPatience getPatienceForRendering() {
+        return readPatience(this.entityData.get(SYNCED_PATIENCE));
+    }
+
     public int getOrderStartIndex() {
         return this.entityData.get(ORDER_START_INDEX);
+    }
+
+    private void syncState() {
+        String stateName = state.name();
+        if (!stateName.equals(this.entityData.get(SYNCED_STATE))) {
+            this.entityData.set(SYNCED_STATE, stateName);
+        }
+    }
+
+    private void syncPatience() {
+        String patienceName = patience.name();
+        if (!patienceName.equals(this.entityData.get(SYNCED_PATIENCE))) {
+            this.entityData.set(SYNCED_PATIENCE, patienceName);
+        }
     }
 
     private void processService() {
@@ -587,21 +647,24 @@ public class CustomerEntity extends PathfinderMob {
         super.remove(reason);
     }
 
-    private void chooseServiceType() {
+    private void setConfiguredServiceType() {
         if (forcedServiceType != null) {
             serviceType = forcedServiceType;
             this.entityData.set(SYNCED_SERVICE_TYPE, serviceType.name());
             return;
         }
-        serviceType = REQUEST_RANDOM.nextInt(100) < TAKEOUT_CHANCE_PERCENT
-                ? CustomerServiceType.TAKEOUT
-                : CustomerServiceType.DINE_IN;
+        serviceType = getConfiguredServiceType();
         this.entityData.set(SYNCED_SERVICE_TYPE, serviceType.name());
     }
 
     @Override
     public boolean hurt(net.minecraft.world.damagesource.DamageSource source, float amount) {
         return false;
+    }
+
+    @Override
+    public boolean isPushable() {
+        return !shouldStaySeated() && super.isPushable();
     }
 
     @Override
@@ -634,87 +697,21 @@ public class CustomerEntity extends PathfinderMob {
     }
 
     public boolean receiveTakeoutPackage(Player player, ItemStack packageStack) {
-        if (serviceType != CustomerServiceType.TAKEOUT || state != CustomerState.WAITING_FOR_PACKAGE) {
-            player.displayClientMessage(Component.literal("This customer is not waiting for takeout."), false);
-            return false;
-        }
-
-        List<ItemStack> foods = TakeoutPackageItem.getFoods(packageStack);
-        if (getCurrentRequest() == null || foods.isEmpty()) {
-            player.displayClientMessage(Component.literal("The package is empty."), false);
-            return false;
-        }
-
-        Optional<FoodRequest> missingRequest = findMissingTakeoutRequest(foods);
-        if (missingRequest.isPresent()) {
-            player.displayClientMessage(Component.literal("Package is missing: " + missingRequest.get().getDescription()), false);
-            reactToWrongOrder("Wrong package");
-            return false;
-        }
-
-        completeOrderFromContainer();
-        player.displayClientMessage(Component.literal("Takeout accepted. Here's your change."), false);
-        if (!player.getAbilities().instabuild) {
-            packageStack.shrink(1);
-        } else {
-            TakeoutPackageItem.clearFood(packageStack);
-        }
-        releaseReservedCounter();
-        return true;
+        player.displayClientMessage(Component.literal("This customer is not waiting for takeout."), false);
+        return false;
     }
 
     public boolean receivePlate(Player player, ItemStack plateStack) {
-        if (serviceType != CustomerServiceType.DINE_IN || state != CustomerState.WAITING_FOR_PLATE) {
-            player.displayClientMessage(Component.literal("This customer is not waiting for dine-in food."), false);
-            return false;
-        }
-
-        List<ItemStack> foods = PlateItem.getFoods(plateStack);
-        if (getCurrentRequest() == null || foods.isEmpty()) {
-            player.displayClientMessage(Component.literal("The plate is empty."), false);
-            return false;
-        }
-
-        Optional<FoodRequest> missingRequest = findMissingTakeoutRequest(foods);
-        if (missingRequest.isPresent()) {
-            player.displayClientMessage(Component.literal("Plate is missing: " + missingRequest.get().getDescription()), false);
-            reactToWrongOrder("Wrong plate");
-            return false;
-        }
-
-        completeOrderFromContainer();
-        PlateItem.clearFood(plateStack);
-        player.displayClientMessage(Component.literal("Plate accepted. Here's your change."), false);
-        releaseReservedSeat();
-        return true;
+        player.displayClientMessage(Component.literal("This customer is not waiting for dine-in food."), false);
+        return false;
     }
 
     public boolean serveTakeoutFromHeldPackage(Player player) {
-        ItemStack mainHand = player.getMainHandItem();
-        if (mainHand.getItem() instanceof TakeoutPackageItem) {
-            return receiveTakeoutPackage(player, mainHand);
-        }
-
-        ItemStack offHand = player.getOffhandItem();
-        if (offHand.getItem() instanceof TakeoutPackageItem) {
-            return receiveTakeoutPackage(player, offHand);
-        }
-
         player.displayClientMessage(Component.literal("Hold a takeout package to serve this order."), false);
         return false;
     }
 
     public boolean serveDineInFromHeldPlate(Player player) {
-        ItemStack mainHand = player.getMainHandItem();
-        if (mainHand.getItem() instanceof PlateItem) {
-            return receivePlate(player, mainHand);
-        }
-
-        ItemStack offHand = player.getOffhandItem();
-        if (offHand.getItem() instanceof PlateItem) {
-            return receivePlate(player, offHand);
-        }
-
         player.displayClientMessage(Component.literal("Hold a plate to serve this order."), false);
         return false;
     }
@@ -857,7 +854,7 @@ public class CustomerEntity extends PathfinderMob {
     }
 
     @Nullable
-    private FoodRequest getCurrentRequest() {
+    protected FoodRequest getCurrentRequest() {
         if (currentRequestIndex < 0 || currentRequestIndex >= requests.size()) {
             return null;
         }
@@ -870,7 +867,7 @@ public class CustomerEntity extends PathfinderMob {
         return null;
     }
 
-    private boolean isOrderComplete() {
+    protected boolean isOrderComplete() {
         if (requests.isEmpty()) {
             return false;
         }
@@ -909,7 +906,7 @@ public class CustomerEntity extends PathfinderMob {
         return FoodRegistryScanner.createRequest();
     }
 
-    private void completeCurrentRequest(Player player, int reward, String message) {
+    protected void completeCurrentRequest(Player player, int reward, String message) {
         this.spawnAtLocation(new ItemStack(Items.EMERALD, reward));
         if (restaurant != null) {
             restaurant.addOrderCompleted();
@@ -922,7 +919,7 @@ public class CustomerEntity extends PathfinderMob {
         player.displayClientMessage(Component.literal(message), false);
     }
 
-    private void completeCurrentRequestFromPlate(int reward) {
+    protected void completeCurrentRequestFromPlate(int reward) {
         this.spawnAtLocation(new ItemStack(Items.EMERALD, reward));
         if (restaurant != null) {
             restaurant.addOrderCompleted();
@@ -934,7 +931,72 @@ public class CustomerEntity extends PathfinderMob {
         advanceRequest();
     }
 
-    private Optional<FoodRequest> findMissingTakeoutRequest(List<ItemStack> foods) {
+    protected int findMatchingRemainingRequestIndex(List<ItemStack> foods) {
+        for (int i = currentRequestIndex; i < requests.size(); i++) {
+            FoodRequest request = requests.get(i);
+            if (request == null) {
+                continue;
+            }
+            for (ItemStack food : foods) {
+                if (!food.isEmpty() && food.getItem() == request.getItem()) {
+                    return i;
+                }
+            }
+        }
+        return -1;
+    }
+
+    private void completePlateRequest(Player player, ItemStack plateStack, List<ItemStack> foods, int requestIndex) {
+        FoodRequest request = requests.get(requestIndex);
+        if (request == null) {
+            return;
+        }
+
+        int reward = getScaledReward(request);
+        this.spawnAtLocation(new ItemStack(Items.EMERALD, reward));
+        if (restaurant != null) {
+            restaurant.addOrderCompleted();
+            restaurant.addMoneyEarned(reward);
+            if (this.level() instanceof ServerLevel serverLevel) {
+                RestaurantManager.get(serverLevel).setDirty();
+            }
+        }
+
+        removeServedFoodFromPlate(plateStack, foods, request);
+        requests.set(requestIndex, null);
+        while (currentRequestIndex < requests.size() && requests.get(currentRequestIndex) == null) {
+            currentRequestIndex++;
+        }
+
+        if (isOrderComplete()) {
+            state = CustomerState.SERVED;
+            this.setCustomName(Component.literal("Order complete"));
+            this.setCustomNameVisible(true);
+            releaseReservedSeat();
+        } else {
+            state = CustomerState.WAITING_FOR_PLATE;
+            waitTimer = 0;
+            noSeatWaitTimer = 0;
+            patience = CustomerPatience.HAPPY;
+            updateRequestName();
+        }
+        player.displayClientMessage(Component.literal("Plate accepted. Here's your change."), false);
+    }
+
+    protected void removeServedFoodFromPlate(ItemStack plateStack, List<ItemStack> foods, FoodRequest request) {
+        List<ItemStack> remainingFoods = foods.stream()
+                .map(ItemStack::copy)
+                .collect(java.util.stream.Collectors.toCollection(ArrayList::new));
+        for (int i = 0; i < remainingFoods.size(); i++) {
+            if (remainingFoods.get(i).getItem() == request.getItem()) {
+                remainingFoods.remove(i);
+                break;
+            }
+        }
+        PlateItem.setFoods(plateStack, remainingFoods);
+    }
+
+    protected Optional<FoodRequest> findMissingTakeoutRequest(List<ItemStack> foods) {
         List<ItemStack> remainingFoods = foods.stream().map(ItemStack::copy).collect(java.util.stream.Collectors.toCollection(ArrayList::new));
         for (int i = currentRequestIndex; i < requests.size(); i++) {
             FoodRequest request = requests.get(i);
@@ -952,7 +1014,7 @@ public class CustomerEntity extends PathfinderMob {
         return Optional.empty();
     }
 
-    private void completeOrderFromContainer() {
+    protected void completeOrderFromContainer() {
         int totalReward = 0;
         int completedRequests = 0;
         for (int i = currentRequestIndex; i < requests.size(); i++) {
@@ -982,34 +1044,7 @@ public class CustomerEntity extends PathfinderMob {
         updateRequestName();
     }
 
-    private void scanForPlateMeal() {
-        if (++plateScanTimer < PLATE_SCAN_INTERVAL || assignedTablePos == null) {
-            return;
-        }
-        plateScanTimer = 0;
-        if (getCurrentRequest() == null) {
-            return;
-        }
-
-        Optional<PlateBlockEntity> matchingPlate = findLinkedTablePlateWithCompleteOrder();
-        if (matchingPlate.isPresent()) {
-            servedPlatePos = matchingPlate.get().getBlockPos();
-            state = CustomerState.EATING;
-            eatingTimer = 0;
-            this.setCustomName(Component.literal("Eating"));
-            this.setCustomNameVisible(true);
-            return;
-        }
-
-        if (wrongOrderCooldown <= 0) {
-            findLinkedTablePlateWithMeals()
-                    .ifPresent(plate -> {
-                        Optional<FoodRequest> missingRequest = findMissingTakeoutRequest(plate.getMeals());
-                        String missing = missingRequest.map(FoodRequest::getDescription).orElse("requested food");
-                        reactToWrongOrder("Wrong plate: missing " + missing);
-                        wrongOrderCooldown = 20 * 5;
-                    });
-        }
+    protected void scanForPlateMeal() {
     }
 
     private Optional<PlateBlockEntity> findLinkedTablePlateWithCompleteOrder() {
@@ -1045,23 +1080,17 @@ public class CustomerEntity extends PathfinderMob {
         }
     }
 
-    private void reactToWrongOrder(String message) {
-        waitTimer += TICKS_PER_MINUTE;
+    protected void reactToWrongOrder(String message) {
+        waitTimer += TICKS_PER_MINUTE * 7;
         setPatience(waitTimer >= IMPATIENT_TO_ANGRY_TICKS ? CustomerPatience.ANGRY : CustomerPatience.IMPATIENT);
         this.setCustomName(Component.literal(message));
         this.setCustomNameVisible(true);
     }
 
-    private void finishEating() {
-        if (servedPlatePos != null && this.level().getBlockEntity(servedPlatePos) instanceof PlateBlockEntity plate) {
-            plate.clearMeals();
-        }
-        servedPlatePos = null;
-        completeOrderFromContainer();
-        releaseReservedSeat();
+    protected void finishEating() {
     }
 
-    private void advanceRequest() {
+    protected void advanceRequest() {
         currentRequestIndex++;
         if (isOrderComplete()) {
             state = CustomerState.SERVED;
@@ -1076,56 +1105,22 @@ public class CustomerEntity extends PathfinderMob {
         updateRequestName();
     }
 
-    private boolean findAndReserveSeat() {
-        if (!(this.level() instanceof ServerLevel serverLevel) || restaurant == null || reservedSeatPos != null) {
-            return reservedSeatPos != null;
-        }
-        if (seatSearchCooldown > 0) {
-            return false;
-        }
-
-        Optional<SeatTableLink> linkedSeat = restaurant.getSeatTableLinks().stream()
-                .filter(link -> RestaurantSeatingApi.occupySeat(link.getChairPos(), this.getUUID(), serverLevel))
-                .findFirst();
-        if (linkedSeat.isPresent()) {
-            SeatTableLink link = linkedSeat.get();
-            reservedSeatPos = link.getChairPos();
-            seatTarget = RestaurantSeatingApi.getPoint(reservedSeatPos, serverLevel)
-                    .map(MarkedPoint::getInteractionPosition)
-                    .orElse(Vec3.atCenterOf(reservedSeatPos));
-            assignedTablePos = link.getTablePos();
-            noSeatWaitTimer = 0;
-            seatSearchCooldown = 0;
-            return true;
-        }
-
-        AABB bounds = restaurant.getBounds();
-        BlockPos center = BlockPos.containing(bounds.getCenter());
-        double radius = Math.max(8.0, Math.max(bounds.getXsize(), bounds.getZsize()) + 4.0);
-        Optional<MarkedPoint> seat = RestaurantSeatingApi.findNearestAvailableSeat(center, radius, serverLevel);
-        if (seat.isEmpty()) {
-            seatSearchCooldown = staggeredCooldown(RESERVATION_SEARCH_INTERVAL);
-            return false;
-        }
-
-        MarkedPoint point = seat.get();
-        if (!RestaurantSeatingApi.occupySeat(point.getPos(), this.getUUID(), serverLevel)) {
-            seatSearchCooldown = staggeredCooldown(RESERVATION_SEARCH_INTERVAL);
-            return false;
-        }
-        reservedSeatPos = point.getPos();
-        seatTarget = point.getInteractionPosition();
-        assignedTablePos = RestaurantSeatingApi.getLinkedTable(reservedSeatPos, serverLevel)
-                .or(() -> RestaurantSeatingApi.findNearestTable(reservedSeatPos, 4.0, serverLevel)
-                .map(MarkedPoint::getPos)
-                )
-                .orElse(null);
-        noSeatWaitTimer = 0;
-        seatSearchCooldown = 0;
-        return true;
+    protected boolean findAndReserveSeat() {
+        return false;
     }
 
-    private boolean findAndReserveQueueSpot() {
+    protected Vec3 getSeatTarget(BlockPos seatPos) {
+        return new Vec3(seatPos.getX() + 0.5, seatPos.getY() - 0.1, seatPos.getZ() + 0.5);
+    }
+
+    protected Vec3 getSeatApproachTarget() {
+        if (reservedSeatPos == null) {
+            return seatTarget;
+        }
+        return new Vec3(reservedSeatPos.getX() + 0.5, reservedSeatPos.getY() + 0.5, reservedSeatPos.getZ() + 0.5);
+    }
+
+    protected boolean findAndReserveQueueSpot() {
         if (restaurant == null || reservedQueuePos != null) {
             return reservedQueuePos != null;
         }
@@ -1135,70 +1130,27 @@ public class CustomerEntity extends PathfinderMob {
         return true;
     }
 
-    private boolean findAndReserveCounter() {
-        if (!(this.level() instanceof ServerLevel serverLevel) || restaurant == null || reservedCounterPos != null) {
-            return reservedCounterPos != null;
-        }
-        if (counterSearchCooldown > 0) {
-            return false;
-        }
-
-        Optional<BlockPos> restaurantCounter = restaurant.getCounterPos();
-        if (restaurantCounter.isPresent()
-                && RestaurantSeatingApi.occupyCounter(restaurantCounter.get(), this.getUUID(), serverLevel)) {
-            reservedCounterPos = restaurantCounter.get();
-            counterTarget = getCashRegisterInteractionPosition(reservedCounterPos, serverLevel)
-                    .or(() -> RestaurantSeatingApi.getPoint(reservedCounterPos, serverLevel)
-                    .map(MarkedPoint::getInteractionPosition)
-                    )
-                    .orElse(Vec3.atBottomCenterOf(reservedCounterPos.above()));
-            counterSearchCooldown = 0;
-            return true;
-        }
-
-        AABB bounds = restaurant.getBounds();
-        BlockPos center = BlockPos.containing(bounds.getCenter());
-        double radius = Math.max(8.0, Math.max(bounds.getXsize(), bounds.getZsize()) + 4.0);
-        Optional<MarkedPoint> counter = RestaurantSeatingApi.findNearestAvailableCounter(center, radius, serverLevel);
-        if (counter.isEmpty()) {
-            counterSearchCooldown = staggeredCooldown(RESERVATION_SEARCH_INTERVAL);
-            return false;
-        }
-
-        MarkedPoint point = counter.get();
-        if (!RestaurantSeatingApi.occupyCounter(point.getPos(), this.getUUID(), serverLevel)) {
-            counterSearchCooldown = staggeredCooldown(RESERVATION_SEARCH_INTERVAL);
-            return false;
-        }
-        reservedCounterPos = point.getPos();
-        counterTarget = point.getInteractionPosition();
-        counterSearchCooldown = 0;
-        return true;
+    protected boolean findAndReserveCounter() {
+        return false;
     }
 
-    private Optional<Vec3> getCashRegisterInteractionPosition(BlockPos pos, ServerLevel serverLevel) {
-        var state = serverLevel.getBlockState(pos);
-        if (!state.is(com.restaurantmanager.setup.ModBlocks.CASH_REGISTER.get()) || !state.hasProperty(CashRegisterBlock.FACING)) {
-            return Optional.empty();
-        }
-        return Optional.of(RestaurantSeatingApi.getCounterInteractionPosition(pos, state.getValue(CashRegisterBlock.FACING), serverLevel));
+    protected Optional<Vec3> getCounterTarget(BlockPos pos, ServerLevel serverLevel) {
+        return Optional.empty();
     }
 
-    private boolean canLeaveQueueForSeat() {
-        if (restaurant == null || reservedQueuePos == null) {
-            return false;
-        }
-        return findAndReserveSeat();
+    protected Optional<Vec3> getCashRegisterInteractionPosition(BlockPos pos, ServerLevel serverLevel) {
+        return Optional.empty();
     }
 
-    private boolean canLeaveQueueForCounter() {
-        if (restaurant == null || reservedQueuePos == null) {
-            return false;
-        }
-        return findAndReserveCounter();
+    protected boolean canLeaveQueueForSeat() {
+        return false;
     }
 
-    private boolean moveForwardInQueue() {
+    protected boolean canLeaveQueueForCounter() {
+        return false;
+    }
+
+    protected boolean moveForwardInQueue() {
         return false;
     }
 
@@ -1222,7 +1174,7 @@ public class CustomerEntity extends PathfinderMob {
         setPatience(nextPatience);
     }
 
-    private void updateNoSeatPatience() {
+    protected void updateNoSeatPatience() {
         noSeatWaitTimer++;
         if (noSeatWaitTimer >= NO_SEAT_TO_LEAVE_TICKS) {
             leaveUnserved("Leaving: no available seats.");
@@ -1242,11 +1194,11 @@ public class CustomerEntity extends PathfinderMob {
         };
     }
 
-    private int getScaledReward(FoodRequest request) {
+    protected int getScaledReward(FoodRequest request) {
         return request == null ? 1 : getScaledReward(request.getReward());
     }
 
-    private int getScaledReward(int baseReward) {
+    protected int getScaledReward(int baseReward) {
         int stars = restaurant == null ? 1 : restaurant.getStarRating();
         int percent = 100 + Math.max(0, stars - 1) * STAR_PRICE_STEP_PERCENT;
         return Math.max(1, (int) Math.ceil(baseReward * percent / 100.0));
@@ -1263,6 +1215,7 @@ public class CustomerEntity extends PathfinderMob {
         if (state == CustomerState.LEAVING) {
             return;
         }
+        prepareToLeave();
         this.patience = CustomerPatience.LEAVING;
         if (restaurant != null) {
             restaurant.addCustomerLost();
@@ -1277,32 +1230,24 @@ public class CustomerEntity extends PathfinderMob {
         this.setCustomNameVisible(true);
     }
 
-    private void releaseReservedSeat() {
-        if (reservedSeatPos != null && this.level() instanceof ServerLevel serverLevel) {
-            RestaurantSeatingApi.releaseSeat(reservedSeatPos, this.getUUID(), serverLevel);
-            reservedSeatPos = null;
-            seatTarget = null;
-            assignedTablePos = null;
-        }
+    protected void releaseReservedSeat() {
     }
 
-    private void releaseReservedQueueSpot() {
+    protected void releaseReservedQueueSpot() {
         reservedQueuePos = null;
         queueTarget = null;
     }
 
-    private void releaseReservedCounter() {
-        if (reservedCounterPos != null && this.level() instanceof ServerLevel serverLevel) {
-            RestaurantSeatingApi.releaseCounter(reservedCounterPos, this.getUUID(), serverLevel);
-            reservedCounterPos = null;
-            counterTarget = null;
-        }
+    protected void releaseReservedCounter() {
     }
 
-    private void releaseAllReservations() {
+    protected void releaseAllReservations() {
         releaseReservedSeat();
         releaseReservedQueueSpot();
         releaseReservedCounter();
+    }
+
+    protected void prepareToLeave() {
     }
 
     private void redirectOrLeaveClosedRestaurant() {
@@ -1323,18 +1268,10 @@ public class CustomerEntity extends PathfinderMob {
                 ));
     }
 
-    private void holdSeatPosition() {
-        if (seatTarget == null) {
-            return;
-        }
-        this.getNavigation().stop();
-        this.setDeltaMovement(Vec3.ZERO);
-        if (this.distanceToSqr(seatTarget.x, seatTarget.y, seatTarget.z) > 0.5) {
-            this.setPos(seatTarget.x, seatTarget.y, seatTarget.z);
-        }
+    protected void holdSeatPosition() {
     }
 
-    private void holdQueuePosition() {
+    protected void holdQueuePosition() {
         if (queueTarget == null) {
             return;
         }
@@ -1345,34 +1282,20 @@ public class CustomerEntity extends PathfinderMob {
         }
     }
 
-    private void holdCounterPosition() {
-        if (counterTarget == null) {
-            return;
-        }
-        this.getNavigation().stop();
-        this.setDeltaMovement(Vec3.ZERO);
-        if (this.distanceToSqr(counterTarget.x, counterTarget.y, counterTarget.z) > 0.5) {
-            this.setPos(counterTarget.x, counterTarget.y, counterTarget.z);
-        }
-        faceReservedCounter();
+    protected void holdCounterPosition() {
     }
 
-    private void faceReservedCounter() {
-        if (reservedCounterPos == null) {
-            return;
-        }
-
-        Vec3 counterCenter = Vec3.atCenterOf(reservedCounterPos);
-        double dx = counterCenter.x - this.getX();
-        double dz = counterCenter.z - this.getZ();
-        float yaw = (float) (Mth.atan2(dz, dx) * Mth.RAD_TO_DEG) - 90.0F;
-        this.setYRot(yaw);
-        this.yBodyRot = yaw;
-        this.yHeadRot = yaw;
-        this.getLookControl().setLookAt(counterCenter.x, counterCenter.y, counterCenter.z);
+    protected boolean shouldStaySeated() {
+        return false;
     }
 
-    private void updateRequestName() {
+    protected void faceReservedCounter() {
+    }
+
+    protected void faceAssignedTable() {
+    }
+
+    protected void updateRequestName() {
         FoodRequest request = getCurrentRequest();
         if (request == null) {
             this.entityData.set(ORDER_SUMMARY, "");
@@ -1486,13 +1409,15 @@ public class CustomerEntity extends PathfinderMob {
             }
 
             AABB bounds = customer.restaurant.getBounds();
-            double targetX = customer.seatTarget != null ? customer.seatTarget.x : bounds.getCenter().x;
-            double targetY = customer.seatTarget != null ? customer.seatTarget.y : bounds.minY + 1.0;
-            double targetZ = customer.seatTarget != null ? customer.seatTarget.z : bounds.getCenter().z;
+            Vec3 approachTarget = customer.getSeatApproachTarget();
+            double targetX = approachTarget != null ? approachTarget.x : bounds.getCenter().x;
+            double targetY = approachTarget != null ? approachTarget.y : bounds.minY + 1.0;
+            double targetZ = approachTarget != null ? approachTarget.z : bounds.getCenter().z;
             customer.getNavigation().moveTo(targetX, targetY, targetZ, 1.0);
-            boolean reachedSeat = customer.seatTarget != null && customer.distanceToSqr(targetX, targetY, targetZ) <= 1.0;
+            boolean reachedSeat = customer.seatTarget != null
+                    && customer.distanceToSqr(targetX, targetY, targetZ) <= 2.0;
             if (reachedSeat) {
-                customer.setPos(targetX, targetY, targetZ);
+                customer.holdSeatPosition();
                 customer.getNavigation().stop();
                 customer.state = CustomerState.SEATED;
                 customer.waitTimer = 0;
@@ -1526,10 +1451,10 @@ public class CustomerEntity extends PathfinderMob {
             if (customer.restaurant == null) {
                 return;
             }
-            customer.holdSeatPosition();
-            if (customer.getCurrentRequest() != null) {
-                BlockPos signPos = customer.restaurant.getSignPos();
-                customer.getLookControl().setLookAt(signPos.getX() + 0.5, signPos.getY() + 0.5, signPos.getZ() + 0.5);
+            if (customer.state == CustomerState.WAITING_FOR_PLATE) {
+                customer.holdSeatPosition();
+            } else if (customer.state == CustomerState.WAITING_FOR_PACKAGE) {
+                customer.holdCounterPosition();
             }
         }
     }
@@ -1584,12 +1509,12 @@ public class CustomerEntity extends PathfinderMob {
 
         @Override
         public boolean canUse() {
-            return customer.state != CustomerState.LEAVING && super.canUse();
+            return customer.state == CustomerState.SPAWN && super.canUse();
         }
 
         @Override
         public boolean canContinueToUse() {
-            return customer.state != CustomerState.LEAVING && super.canContinueToUse();
+            return customer.state == CustomerState.SPAWN && super.canContinueToUse();
         }
     }
 }

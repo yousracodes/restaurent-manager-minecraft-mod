@@ -1,12 +1,13 @@
 package com.restaurantmanager.seating;
 
+import com.restaurantmanager.block.CashRegisterBlock;
+import com.restaurantmanager.setup.ModBlocks;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.Vec3;
-import net.minecraft.world.phys.shapes.VoxelShape;
 
 import java.util.List;
 import java.util.Optional;
@@ -54,6 +55,11 @@ public final class RestaurantSeatingApi {
     }
 
     public static void markCounter(BlockPos pos, Level level) {
+        BlockState state = level.getBlockState(pos);
+        if (state.is(ModBlocks.CASH_REGISTER.get()) && state.hasProperty(CashRegisterBlock.FACING)) {
+            markCounter(pos, state.getValue(CashRegisterBlock.FACING), level);
+            return;
+        }
         markPoint(pos, level, MarkType.COUNTER, Vec3.atBottomCenterOf(pos.relative(Direction.UP)));
     }
 
@@ -237,17 +243,6 @@ public final class RestaurantSeatingApi {
     }
 
     private static Vec3 computeSeatPosition(BlockPos pos, Level level) {
-        BlockState state = level.getBlockState(pos);
-        VoxelShape shape = state.getShape(level, pos);
-        double yOffset = 0.75;
-        if (!shape.isEmpty()) {
-            double maxY = shape.max(Direction.Axis.Y);
-            if (maxY <= 0.625) {
-                yOffset = 0.5;
-            } else if (maxY >= 0.95) {
-                yOffset = 1.0;
-            }
-        }
-        return new Vec3(pos.getX() + 0.5, pos.getY() + yOffset, pos.getZ() + 0.5);
+        return new Vec3(pos.getX() + 0.5, pos.getY() - 0.1, pos.getZ() + 0.5);
     }
 }

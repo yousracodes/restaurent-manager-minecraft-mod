@@ -16,6 +16,8 @@ public class ClientModEvents {
     @SubscribeEvent
     public static void registerEntityRenderers(EntityRenderersEvent.RegisterRenderers event) {
         event.registerEntityRenderer(ModEntities.CUSTOMER.get(), CustomerRenderer::new);
+        event.registerEntityRenderer(ModEntities.DINE_IN_CUSTOMER.get(), CustomerRenderer::new);
+        event.registerEntityRenderer(ModEntities.TAKEOUT_CUSTOMER.get(), CustomerRenderer::new);
         event.registerBlockEntityRenderer(ModBlockEntities.PLATE.get(), PlateBlockEntityRenderer::new);
     }
 

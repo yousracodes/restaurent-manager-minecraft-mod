@@ -26,7 +26,7 @@ import javax.annotation.Nullable;
 
 public class PlateBlock extends BaseEntityBlock {
     public static final BooleanProperty FILLED = BooleanProperty.create("filled");
-    private static final VoxelShape SHAPE = box(0.0, 0.0, 0.0, 16.0, 6.0, 16.0);
+    private static final VoxelShape SHAPE = box(2.0, 0.0, 2.0, 14.0, 3.0, 14.0);
 
     public PlateBlock(Properties properties) {
         super(properties);

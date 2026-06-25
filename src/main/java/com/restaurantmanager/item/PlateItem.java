@@ -1,6 +1,7 @@
 package com.restaurantmanager.item;
 
 import com.restaurantmanager.menu.PlateMenu;
+import net.minecraft.ChatFormatting;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
@@ -13,11 +14,13 @@ import net.minecraft.world.InteractionResultHolder;
 import net.minecraft.world.SimpleMenuProvider;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.TooltipFlag;
 import net.minecraft.world.item.context.UseOnContext;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraftforge.network.NetworkHooks;
 
+import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -61,6 +64,22 @@ public class PlateItem extends BlockItem {
                         Component.literal("Plate")),
                 buffer -> buffer.writeEnum(hand)
         );
+    }
+
+    @Override
+    public void appendHoverText(ItemStack stack, @Nullable Level level, List<Component> tooltip, TooltipFlag flag) {
+        List<ItemStack> foods = getFoods(stack);
+        if (foods.isEmpty()) {
+            tooltip.add(Component.literal("Empty plate").withStyle(ChatFormatting.GRAY));
+            return;
+        }
+
+        tooltip.add(Component.literal("Contains:").withStyle(ChatFormatting.GRAY));
+        for (ItemStack food : foods) {
+            tooltip.add(Component.literal("- ")
+                    .append(food.getHoverName())
+                    .withStyle(ChatFormatting.YELLOW));
+        }
     }
 
     public static boolean hasFood(ItemStack stack) {

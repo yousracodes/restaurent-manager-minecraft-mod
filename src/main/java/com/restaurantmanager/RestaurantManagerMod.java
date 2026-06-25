@@ -53,5 +53,7 @@ public class RestaurantManagerMod {
 
     private void onEntityAttributeCreation(final EntityAttributeCreationEvent event) {
         event.put(ModEntities.CUSTOMER.get(), CustomerEntity.createAttributes().build());
+        event.put(ModEntities.DINE_IN_CUSTOMER.get(), CustomerEntity.createAttributes().build());
+        event.put(ModEntities.TAKEOUT_CUSTOMER.get(), CustomerEntity.createAttributes().build());
     }
 }
