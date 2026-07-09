@@ -16,6 +16,7 @@ import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.TooltipFlag;
 import net.minecraft.world.item.context.UseOnContext;
+import net.minecraft.world.inventory.tooltip.TooltipComponent;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraftforge.network.NetworkHooks;
@@ -23,6 +24,7 @@ import net.minecraftforge.network.NetworkHooks;
 import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 public class PlateItem extends BlockItem {
     private static final String FOODS_TAG = "Foods";
@@ -75,11 +77,12 @@ public class PlateItem extends BlockItem {
         }
 
         tooltip.add(Component.literal("Contains:").withStyle(ChatFormatting.GRAY));
-        for (ItemStack food : foods) {
-            tooltip.add(Component.literal("- ")
-                    .append(food.getHoverName())
-                    .withStyle(ChatFormatting.YELLOW));
-        }
+    }
+
+    @Override
+    public Optional<TooltipComponent> getTooltipImage(ItemStack stack) {
+        List<ItemStack> foods = getFoods(stack);
+        return foods.isEmpty() ? Optional.empty() : Optional.of(new FoodListTooltipComponent(foods));
     }
 
     public static boolean hasFood(ItemStack stack) {

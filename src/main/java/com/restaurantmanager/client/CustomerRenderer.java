@@ -4,6 +4,7 @@ import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.restaurantmanager.entity.CustomerPatience;
 import com.restaurantmanager.entity.CustomerEntity;
+import net.minecraft.client.gui.Font;
 import net.minecraft.client.model.PlayerModel;
 import net.minecraft.client.model.geom.ModelLayers;
 import net.minecraft.client.model.geom.ModelPart;
@@ -25,6 +26,11 @@ public class CustomerRenderer<T extends CustomerEntity> extends HumanoidMobRende
             new ResourceLocation("minecraft", "textures/entity/player/slim/alex.png")
     };
     private static final float ICON_SIZE = 0.55F;
+    private static final float LABEL_SCALE = 0.025F;
+    private static final float LABEL_X = 16.0F;
+    private static final float LABEL_Y = -4.0F;
+    private static final int LABEL_COLOR = 0xFFFFFF;
+    private static final int LABEL_BACKGROUND = 0x66000000;
     private final EntityRenderDispatcher renderDispatcher;
 
     public CustomerRenderer(EntityRendererProvider.Context context) {
@@ -62,10 +68,30 @@ public class CustomerRenderer<T extends CustomerEntity> extends HumanoidMobRende
         Matrix4f positionMatrix = pose.pose();
         Matrix3f normalMatrix = pose.normal();
         VertexConsumer consumer = buffer.getBuffer(RenderType.entityTranslucent(texture));
-        addIconVertex(consumer, positionMatrix, normalMatrix, -halfSize, -halfSize, 0.0F, 0.0F, 1.0F, packedLight);
-        addIconVertex(consumer, positionMatrix, normalMatrix, halfSize, -halfSize, 0.0F, 1.0F, 1.0F, packedLight);
-        addIconVertex(consumer, positionMatrix, normalMatrix, halfSize, halfSize, 0.0F, 1.0F, 0.0F, packedLight);
-        addIconVertex(consumer, positionMatrix, normalMatrix, -halfSize, halfSize, 0.0F, 0.0F, 0.0F, packedLight);
+        addIconVertex(consumer, positionMatrix, normalMatrix, -halfSize, -halfSize, 0.0F, 0.0F, 0.0F, packedLight);
+        addIconVertex(consumer, positionMatrix, normalMatrix, halfSize, -halfSize, 0.0F, 1.0F, 0.0F, packedLight);
+        addIconVertex(consumer, positionMatrix, normalMatrix, halfSize, halfSize, 0.0F, 1.0F, 1.0F, packedLight);
+        addIconVertex(consumer, positionMatrix, normalMatrix, -halfSize, halfSize, 0.0F, 0.0F, 1.0F, packedLight);
+        poseStack.popPose();
+
+        renderStateLabel(customer, poseStack, buffer, packedLight);
+    }
+
+    private void renderStateLabel(T customer, PoseStack poseStack, MultiBufferSource buffer, int packedLight) {
+        String label = customer.getStateLabelForRendering();
+        if (label.isBlank()) {
+            return;
+        }
+
+        poseStack.pushPose();
+        poseStack.translate(0.0D, customer.getBbHeight() + 0.65D, 0.0D);
+        poseStack.mulPose(renderDispatcher.cameraOrientation());
+        poseStack.scale(-LABEL_SCALE, -LABEL_SCALE, LABEL_SCALE);
+
+        Font font = getFont();
+        Matrix4f positionMatrix = poseStack.last().pose();
+        font.drawInBatch(label, LABEL_X, LABEL_Y, LABEL_COLOR, false, positionMatrix, buffer,
+                Font.DisplayMode.NORMAL, LABEL_BACKGROUND, packedLight);
         poseStack.popPose();
     }
 

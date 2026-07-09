@@ -45,7 +45,9 @@ public class TakeoutCustomerEntity extends CustomerEntity {
         }
         Optional<FoodRequest> missingRequest = findMissingTakeoutRequest(foods);
         if (missingRequest.isPresent()) {
-            player.displayClientMessage(Component.literal("Package is missing: " + missingRequest.get().getDescription()), false);
+            String message = "Package is missing: " + missingRequest.get().getDescription();
+            player.displayClientMessage(Component.literal(message), false);
+            reactToWrongOrder(message);
             wrongOrderCooldown = 20 * 4;
             return false;
         }
@@ -88,6 +90,7 @@ public class TakeoutCustomerEntity extends CustomerEntity {
         }
 
         Optional<BlockPos> restaurantCounter = restaurant.getCounterPos();
+        restaurantCounter.ifPresent(counterPos -> RestaurantSeatingApi.markCounter(counterPos, serverLevel));
         if (restaurantCounter.isPresent()
                 && RestaurantSeatingApi.occupyCounter(restaurantCounter.get(), this.getUUID(), serverLevel)) {
             reservedCounterPos = restaurantCounter.get();
@@ -138,7 +141,7 @@ public class TakeoutCustomerEntity extends CustomerEntity {
 
     @Override
     protected boolean canLeaveQueueForCounter() {
-        if (restaurant == null || reservedQueuePos == null) {
+        if (restaurant == null) {
             return false;
         }
         return findAndReserveCounter();

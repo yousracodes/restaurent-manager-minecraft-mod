@@ -48,11 +48,14 @@ public class DineInCustomerEntity extends CustomerEntity {
         int matchingIndex = findMatchingRemainingRequestIndex(foods);
         if (matchingIndex < 0) {
             Optional<FoodRequest> missingRequest = findMissingTakeoutRequest(foods);
+            String message;
             if (missingRequest.isPresent()) {
-                player.displayClientMessage(Component.literal("Plate is missing: " + missingRequest.get().getDescription()), false);
+                message = "Plate is missing: " + missingRequest.get().getDescription();
             } else {
-                player.displayClientMessage(Component.literal("Plate does not contain a requested item."), false);
+                message = "Plate does not contain a requested item.";
             }
+            player.displayClientMessage(Component.literal(message), false);
+            reactToWrongOrder(message);
             wrongOrderCooldown = 20 * 4;
             return false;
         }

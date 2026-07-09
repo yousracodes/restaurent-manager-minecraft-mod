@@ -611,6 +611,10 @@ public abstract class CustomerEntity extends PathfinderMob {
         return readPatience(this.entityData.get(SYNCED_PATIENCE));
     }
 
+    public String getStateLabelForRendering() {
+        return readState(this.entityData.get(SYNCED_STATE)).getDisplayName();
+    }
+
     public int getOrderStartIndex() {
         return this.entityData.get(ORDER_START_INDEX);
     }
@@ -1125,8 +1129,24 @@ public abstract class CustomerEntity extends PathfinderMob {
             return reservedQueuePos != null;
         }
 
-        reservedQueuePos = restaurant.getSignPos();
-        queueTarget = Vec3.atBottomCenterOf(reservedQueuePos);
+        if (!(this.level() instanceof ServerLevel serverLevel)) {
+            return false;
+        }
+
+        AABB bounds = restaurant.getBounds();
+        BlockPos center = BlockPos.containing(bounds.getCenter());
+        double radius = Math.max(8.0, Math.max(bounds.getXsize(), bounds.getZsize()) + 4.0);
+        Optional<MarkedPoint> queueSpot = RestaurantSeatingApi.findNearestAvailableQueueSpot(center, radius, serverLevel);
+        if (queueSpot.isEmpty()) {
+            return false;
+        }
+
+        MarkedPoint point = queueSpot.get();
+        if (!RestaurantSeatingApi.occupyQueueSpot(point.getPos(), this.getUUID(), serverLevel)) {
+            return false;
+        }
+        reservedQueuePos = point.getPos();
+        queueTarget = point.getInteractionPosition();
         return true;
     }
 
@@ -1234,6 +1254,9 @@ public abstract class CustomerEntity extends PathfinderMob {
     }
 
     protected void releaseReservedQueueSpot() {
+        if (reservedQueuePos != null && this.level() instanceof ServerLevel serverLevel) {
+            RestaurantSeatingApi.releaseQueueSpot(reservedQueuePos, this.getUUID(), serverLevel);
+        }
         reservedQueuePos = null;
         queueTarget = null;
     }

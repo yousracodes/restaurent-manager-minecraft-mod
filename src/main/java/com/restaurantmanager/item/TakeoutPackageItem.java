@@ -18,12 +18,14 @@ import net.minecraft.world.SimpleMenuProvider;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.TooltipFlag;
+import net.minecraft.world.inventory.tooltip.TooltipComponent;
 import net.minecraft.world.level.Level;
 import net.minecraftforge.network.NetworkHooks;
 
 import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 public class TakeoutPackageItem extends Item {
     private static final String FOOD_TAG = "Food";
@@ -77,11 +79,12 @@ public class TakeoutPackageItem extends Item {
         }
 
         tooltip.add(Component.literal("Contains:").withStyle(ChatFormatting.GRAY));
-        for (ItemStack food : foods) {
-            tooltip.add(Component.literal("- ")
-                    .append(food.getHoverName())
-                    .withStyle(ChatFormatting.YELLOW));
-        }
+    }
+
+    @Override
+    public Optional<TooltipComponent> getTooltipImage(ItemStack stack) {
+        List<ItemStack> foods = getFoods(stack);
+        return foods.isEmpty() ? Optional.empty() : Optional.of(new FoodListTooltipComponent(foods));
     }
 
     public static boolean hasFood(ItemStack stack) {
