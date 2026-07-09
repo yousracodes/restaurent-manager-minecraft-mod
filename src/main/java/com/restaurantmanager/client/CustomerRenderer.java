@@ -22,8 +22,21 @@ import org.joml.Matrix4f;
 
 public class CustomerRenderer<T extends CustomerEntity> extends HumanoidMobRenderer<T, PlayerModel<T>> {
     private static final ResourceLocation[] SKINS = {
-            new ResourceLocation("minecraft", "textures/entity/player/wide/steve.png"),
-            new ResourceLocation("minecraft", "textures/entity/player/slim/alex.png")
+            customerSkin("customer_01.png"),
+            customerSkin("customer_02.png"),
+            customerSkin("customer_03.png"),
+            customerSkin("customer_04.png"),
+            customerSkin("customer_05.png"),
+            customerSkin("customer_06.png"),
+            customerSkin("customer_07.png"),
+            customerSkin("customer_08.png"),
+            customerSkin("customer_09.png"),
+            customerSkin("customer_10.png"),
+            customerSkin("customer_11.png"),
+            customerSkin("customer_12.png"),
+            customerSkin("customer_13.png"),
+            customerSkin("customer_14.png"),
+            customerSkin("customer_15.png")
     };
     private static final float ICON_SIZE = 0.55F;
     private static final float LABEL_SCALE = 0.025F;
@@ -111,6 +124,10 @@ public class CustomerRenderer<T extends CustomerEntity> extends HumanoidMobRende
                 "restaurantmanager",
                 "textures/entity/customer_patience/" + patience.name().toLowerCase(java.util.Locale.ROOT) + ".png"
         );
+    }
+
+    private static ResourceLocation customerSkin(String fileName) {
+        return new ResourceLocation("restaurantmanager", "textures/entity/customer_skins/" + fileName);
     }
 
     private static class SittingCustomerModel<T extends CustomerEntity> extends PlayerModel<T> {
