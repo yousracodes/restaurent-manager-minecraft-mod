@@ -82,7 +82,11 @@ public class TakeoutCustomerEntity extends CustomerEntity {
 
     @Override
     protected boolean findAndReserveCounter() {
-        if (!(this.level() instanceof ServerLevel serverLevel) || restaurant == null || reservedCounterPos != null) {
+        if (!(this.level() instanceof ServerLevel serverLevel) || restaurant == null) {
+            return false;
+        }
+        if (reservedCounterPos != null) {
+            refreshCounterTarget();
             return reservedCounterPos != null;
         }
         if (counterSearchCooldown > 0) {
@@ -137,6 +141,16 @@ public class TakeoutCustomerEntity extends CustomerEntity {
             return Optional.empty();
         }
         return Optional.of(RestaurantSeatingApi.getCounterInteractionPosition(pos, state.getValue(CashRegisterBlock.FACING), serverLevel));
+    }
+
+    @Override
+    protected void refreshCounterTarget() {
+        if (!(this.level() instanceof ServerLevel serverLevel) || reservedCounterPos == null) {
+            return;
+        }
+        RestaurantSeatingApi.markCounter(reservedCounterPos, serverLevel);
+        counterTarget = getCounterTarget(reservedCounterPos, serverLevel)
+                .orElse(Vec3.atBottomCenterOf(reservedCounterPos.above()));
     }
 
     @Override

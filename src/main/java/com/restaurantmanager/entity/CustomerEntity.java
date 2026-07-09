@@ -91,7 +91,9 @@ public abstract class CustomerEntity extends PathfinderMob {
     private static final int CLOSED_RESTAURANT_SEARCH_INTERVAL = 20 * 5;
     private static final int RESTAURANT_SEARCH_INTERVAL = 20;
     protected static final int RESERVATION_SEARCH_INTERVAL = 10;
-    private static final double LEAVING_REACHED_DISTANCE_SQR = 1.5;
+    private static final double LEAVING_REACHED_DISTANCE_SQR = 4.0;
+    private static final double COUNTER_REACHED_DISTANCE_SQR = 1.5;
+    private static final double COUNTER_BLOCK_REACHED_DISTANCE_SQR = 4.0;
 
     protected final List<FoodRequest> requests = new ArrayList<>();
     protected int currentRequestIndex;
@@ -701,8 +703,36 @@ public abstract class CustomerEntity extends PathfinderMob {
     }
 
     public boolean receiveTakeoutPackage(Player player, ItemStack packageStack) {
-        player.displayClientMessage(Component.literal("This customer is not waiting for takeout."), false);
-        return false;
+        if (serviceType != CustomerServiceType.TAKEOUT || state != CustomerState.WAITING_FOR_PACKAGE) {
+            player.displayClientMessage(Component.literal("This customer is not waiting for takeout."), false);
+            return false;
+        }
+        List<ItemStack> foods = TakeoutPackageItem.getFoods(packageStack);
+        if (foods.isEmpty()) {
+            player.displayClientMessage(Component.literal("The package is empty."), false);
+            return false;
+        }
+        Optional<FoodRequest> missingRequest = findMissingTakeoutRequest(foods);
+        if (missingRequest.isPresent()) {
+            String message = "Package is missing: " + missingRequest.get().getDescription();
+            player.displayClientMessage(Component.literal(message), false);
+            reactToWrongOrder(message);
+            wrongOrderCooldown = 20 * 4;
+            return false;
+        }
+
+        int reward = requests.stream()
+                .filter(java.util.Objects::nonNull)
+                .mapToInt(this::getScaledReward)
+                .sum();
+        if (player instanceof ServerPlayer serverPlayer && reward > 0) {
+            serverPlayer.getInventory().placeItemBackInInventory(new ItemStack(Items.EMERALD, reward));
+        }
+        player.displayClientMessage(Component.literal("Takeout accepted. Here's your change."), false);
+        TakeoutPackageItem.clearFood(packageStack);
+        completeOrderFromContainer();
+        releaseReservedCounter();
+        return true;
     }
 
     public boolean receivePlate(Player player, ItemStack plateStack) {
@@ -711,6 +741,14 @@ public abstract class CustomerEntity extends PathfinderMob {
     }
 
     public boolean serveTakeoutFromHeldPackage(Player player) {
+        ItemStack mainHand = player.getMainHandItem();
+        if (mainHand.getItem() instanceof TakeoutPackageItem) {
+            return receiveTakeoutPackage(player, mainHand);
+        }
+        ItemStack offHand = player.getOffhandItem();
+        if (offHand.getItem() instanceof TakeoutPackageItem) {
+            return receiveTakeoutPackage(player, offHand);
+        }
         player.displayClientMessage(Component.literal("Hold a takeout package to serve this order."), false);
         return false;
     }
@@ -1151,15 +1189,69 @@ public abstract class CustomerEntity extends PathfinderMob {
     }
 
     protected boolean findAndReserveCounter() {
-        return false;
+        if (!(this.level() instanceof ServerLevel serverLevel) || restaurant == null) {
+            return false;
+        }
+        if (reservedCounterPos != null) {
+            refreshCounterTarget();
+            return true;
+        }
+        if (counterSearchCooldown > 0) {
+            return false;
+        }
+
+        Optional<BlockPos> restaurantCounter = restaurant.getCounterPos();
+        restaurantCounter.ifPresent(counterPos -> RestaurantSeatingApi.markCounter(counterPos, serverLevel));
+        if (restaurantCounter.isPresent()
+                && RestaurantSeatingApi.occupyCounter(restaurantCounter.get(), this.getUUID(), serverLevel)) {
+            reservedCounterPos = restaurantCounter.get();
+            refreshCounterTarget();
+            counterSearchCooldown = 0;
+            return true;
+        }
+
+        AABB bounds = restaurant.getBounds();
+        BlockPos center = BlockPos.containing(bounds.getCenter());
+        double radius = Math.max(8.0, Math.max(bounds.getXsize(), bounds.getZsize()) + 4.0);
+        Optional<MarkedPoint> counter = RestaurantSeatingApi.findNearestAvailableCounter(center, radius, serverLevel);
+        if (counter.isEmpty()) {
+            counterSearchCooldown = staggeredCooldown(RESERVATION_SEARCH_INTERVAL);
+            return false;
+        }
+
+        MarkedPoint point = counter.get();
+        if (!RestaurantSeatingApi.occupyCounter(point.getPos(), this.getUUID(), serverLevel)) {
+            counterSearchCooldown = staggeredCooldown(RESERVATION_SEARCH_INTERVAL);
+            return false;
+        }
+        reservedCounterPos = point.getPos();
+        counterTarget = getCounterTarget(point.getPos(), serverLevel)
+                .orElse(point.getInteractionPosition());
+        counterSearchCooldown = 0;
+        return true;
     }
 
     protected Optional<Vec3> getCounterTarget(BlockPos pos, ServerLevel serverLevel) {
-        return Optional.empty();
+        return getCashRegisterInteractionPosition(pos, serverLevel)
+                .or(() -> RestaurantSeatingApi.getPoint(pos, serverLevel)
+                        .map(MarkedPoint::getInteractionPosition));
     }
 
     protected Optional<Vec3> getCashRegisterInteractionPosition(BlockPos pos, ServerLevel serverLevel) {
-        return Optional.empty();
+        var state = serverLevel.getBlockState(pos);
+        if (!state.is(com.restaurantmanager.setup.ModBlocks.CASH_REGISTER.get()) || !state.hasProperty(CashRegisterBlock.FACING)) {
+            return Optional.empty();
+        }
+        return Optional.of(RestaurantSeatingApi.getCounterInteractionPosition(pos, state.getValue(CashRegisterBlock.FACING), serverLevel));
+    }
+
+    protected void refreshCounterTarget() {
+        if (!(this.level() instanceof ServerLevel serverLevel) || reservedCounterPos == null) {
+            return;
+        }
+        RestaurantSeatingApi.markCounter(reservedCounterPos, serverLevel);
+        counterTarget = getCounterTarget(reservedCounterPos, serverLevel)
+                .orElse(Vec3.atBottomCenterOf(reservedCounterPos.above()));
     }
 
     protected boolean canLeaveQueueForSeat() {
@@ -1167,7 +1259,7 @@ public abstract class CustomerEntity extends PathfinderMob {
     }
 
     protected boolean canLeaveQueueForCounter() {
-        return false;
+        return restaurant != null && findAndReserveCounter();
     }
 
     protected boolean moveForwardInQueue() {
@@ -1262,6 +1354,11 @@ public abstract class CustomerEntity extends PathfinderMob {
     }
 
     protected void releaseReservedCounter() {
+        if (reservedCounterPos != null && this.level() instanceof ServerLevel serverLevel) {
+            RestaurantSeatingApi.releaseCounter(reservedCounterPos, this.getUUID(), serverLevel);
+            reservedCounterPos = null;
+            counterTarget = null;
+        }
     }
 
     protected void releaseAllReservations() {
@@ -1306,6 +1403,15 @@ public abstract class CustomerEntity extends PathfinderMob {
     }
 
     protected void holdCounterPosition() {
+        if (counterTarget == null) {
+            return;
+        }
+        this.getNavigation().stop();
+        this.setDeltaMovement(Vec3.ZERO);
+        if (this.distanceToSqr(counterTarget.x, counterTarget.y, counterTarget.z) > 0.5) {
+            this.setPos(counterTarget.x, counterTarget.y, counterTarget.z);
+        }
+        faceReservedCounter();
     }
 
     protected boolean shouldStaySeated() {
@@ -1313,6 +1419,17 @@ public abstract class CustomerEntity extends PathfinderMob {
     }
 
     protected void faceReservedCounter() {
+        if (reservedCounterPos == null) {
+            return;
+        }
+
+        Vec3 counterCenter = Vec3.atCenterOf(reservedCounterPos);
+        double dx = counterCenter.x - this.getX();
+        double dz = counterCenter.z - this.getZ();
+        float yaw = (float) (Mth.atan2(dz, dx) * Mth.RAD_TO_DEG) - 90.0F;
+        this.setYRot(yaw);
+        this.yBodyRot = yaw;
+        this.yHeadRot = yaw;
     }
 
     protected void faceAssignedTable() {
@@ -1502,6 +1619,7 @@ public abstract class CustomerEntity extends PathfinderMob {
 
         @Override
         public void tick() {
+            customer.refreshCounterTarget();
             if (customer.counterTarget == null && !customer.findAndReserveCounter()) {
                 if (customer.findAndReserveQueueSpot()) {
                     customer.state = CustomerState.JOINING_QUEUE;
@@ -1511,8 +1629,11 @@ public abstract class CustomerEntity extends PathfinderMob {
                 return;
             }
 
-            customer.getNavigation().moveTo(customer.counterTarget.x, customer.counterTarget.y, customer.counterTarget.z, 1.0);
-            if (customer.distanceToSqr(customer.counterTarget.x, customer.counterTarget.y, customer.counterTarget.z) <= 1.0) {
+            boolean moving = customer.getNavigation().moveTo(customer.counterTarget.x, customer.counterTarget.y, customer.counterTarget.z, 1.0);
+            boolean reachedTarget = customer.distanceToSqr(customer.counterTarget.x, customer.counterTarget.y, customer.counterTarget.z) <= COUNTER_REACHED_DISTANCE_SQR;
+            boolean reachedCounterBlock = customer.reservedCounterPos != null
+                    && customer.distanceToSqr(Vec3.atCenterOf(customer.reservedCounterPos)) <= COUNTER_BLOCK_REACHED_DISTANCE_SQR;
+            if (reachedTarget || (!moving && reachedCounterBlock) || (customer.getNavigation().isDone() && reachedCounterBlock)) {
                 customer.setPos(customer.counterTarget.x, customer.counterTarget.y, customer.counterTarget.z);
                 customer.getNavigation().stop();
                 customer.state = CustomerState.WAITING_AT_COUNTER;
