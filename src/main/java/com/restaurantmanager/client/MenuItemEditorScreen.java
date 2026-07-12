@@ -163,10 +163,10 @@ public class MenuItemEditorScreen extends Screen {
         if (player == null) {
             return;
         }
-        for (int slot = 0; slot < 36; slot++) {
-            int x = this.gridX + (slot % 9) * InventoryPanelRenderer.SLOT_STEP;
-            int y = this.gridY + (slot / 9) * InventoryPanelRenderer.SLOT_STEP;
-            ItemStack stack = player.getInventory().getItem(slot);
+        for (int slot = 0; slot < InventoryPanelRenderer.DISPLAY_SLOT_COUNT; slot++) {
+            int x = InventoryPanelRenderer.slotX(this.gridX, slot);
+            int y = InventoryPanelRenderer.slotY(this.gridY, slot);
+            ItemStack stack = player.getInventory().getItem(InventoryPanelRenderer.inventoryIndexForDisplaySlot(slot));
             drawSlot(graphics, x, y, !stack.isEmpty() && stack.isEdible());
             InventoryPanelRenderer.drawStack(graphics, this.font, stack, x, y);
             if (isInside(mouseX, mouseY, x, y, InventoryPanelRenderer.SLOT_SIZE, InventoryPanelRenderer.SLOT_SIZE)) {
@@ -217,11 +217,11 @@ public class MenuItemEditorScreen extends Screen {
 
         Player player = Minecraft.getInstance().player;
         if (player != null) {
-            for (int slot = 0; slot < 36; slot++) {
-                int x = this.gridX + (slot % 9) * InventoryPanelRenderer.SLOT_STEP;
-                int y = this.gridY + (slot / 9) * InventoryPanelRenderer.SLOT_STEP;
+            for (int slot = 0; slot < InventoryPanelRenderer.DISPLAY_SLOT_COUNT; slot++) {
+                int x = InventoryPanelRenderer.slotX(this.gridX, slot);
+                int y = InventoryPanelRenderer.slotY(this.gridY, slot);
                 if (isInside(mouseX, mouseY, x, y, InventoryPanelRenderer.SLOT_SIZE, InventoryPanelRenderer.SLOT_SIZE)) {
-                    ItemStack stack = player.getInventory().getItem(slot);
+                    ItemStack stack = player.getInventory().getItem(InventoryPanelRenderer.inventoryIndexForDisplaySlot(slot));
                     ResourceLocation id = stack.isEmpty() ? null : ForgeRegistries.ITEMS.getKey(stack.getItem());
                     if (id != null && stack.isEdible() && !menuItems.contains(id)) {
                         menuItems.add(id);

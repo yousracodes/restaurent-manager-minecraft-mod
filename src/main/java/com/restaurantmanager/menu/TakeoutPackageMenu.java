@@ -46,7 +46,7 @@ public class TakeoutPackageMenu extends AbstractContainerMenu {
         }
 
         for (int column = 0; column < 9; column++) {
-            addSlot(new Slot(inventory, column, 48 + column * 18, 199));
+            addSlot(new Slot(inventory, column, 48 + column * 18, 203));
         }
     }
 

@@ -137,10 +137,10 @@ public class TakeoutNegotiationScreen extends Screen {
             return;
         }
 
-        for (int slot = 0; slot < 36; slot++) {
-            int x = inventoryX + (slot % 9) * InventoryPanelRenderer.SLOT_STEP;
-            int y = inventoryY + (slot / 9) * InventoryPanelRenderer.SLOT_STEP;
-            ItemStack stack = player.getInventory().getItem(slot);
+        for (int slot = 0; slot < InventoryPanelRenderer.DISPLAY_SLOT_COUNT; slot++) {
+            int x = InventoryPanelRenderer.slotX(inventoryX, slot);
+            int y = InventoryPanelRenderer.slotY(inventoryY, slot);
+            ItemStack stack = player.getInventory().getItem(InventoryPanelRenderer.inventoryIndexForDisplaySlot(slot));
             InventoryPanelRenderer.drawHighlight(graphics, x, y, !stack.isEmpty() && stack.isEdible());
             InventoryPanelRenderer.drawStack(graphics, this.font, stack, x, y);
             if (isInside(mouseX, mouseY, x, y, InventoryPanelRenderer.SLOT_SIZE, InventoryPanelRenderer.SLOT_SIZE)) {
@@ -155,11 +155,11 @@ public class TakeoutNegotiationScreen extends Screen {
             return;
         }
 
-        for (int slot = 0; slot < 36; slot++) {
-            int x = inventoryX + (slot % 9) * InventoryPanelRenderer.SLOT_STEP;
-            int y = inventoryY + (slot / 9) * InventoryPanelRenderer.SLOT_STEP;
+        for (int slot = 0; slot < InventoryPanelRenderer.DISPLAY_SLOT_COUNT; slot++) {
+            int x = InventoryPanelRenderer.slotX(inventoryX, slot);
+            int y = InventoryPanelRenderer.slotY(inventoryY, slot);
             if (isInside(mouseX, mouseY, x, y, InventoryPanelRenderer.SLOT_SIZE, InventoryPanelRenderer.SLOT_SIZE)) {
-                ItemStack stack = player.getInventory().getItem(slot);
+                ItemStack stack = player.getInventory().getItem(InventoryPanelRenderer.inventoryIndexForDisplaySlot(slot));
                 if (!stack.isEmpty()) {
                     graphics.renderTooltip(this.font, stack, mouseX, mouseY);
                 }
@@ -180,11 +180,11 @@ public class TakeoutNegotiationScreen extends Screen {
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
         Player player = Minecraft.getInstance().player;
         if (player != null) {
-            for (int slot = 0; slot < 36; slot++) {
-                int x = inventoryX + (slot % 9) * InventoryPanelRenderer.SLOT_STEP;
-                int y = inventoryY + (slot / 9) * InventoryPanelRenderer.SLOT_STEP;
+            for (int slot = 0; slot < InventoryPanelRenderer.DISPLAY_SLOT_COUNT; slot++) {
+                int x = InventoryPanelRenderer.slotX(inventoryX, slot);
+                int y = InventoryPanelRenderer.slotY(inventoryY, slot);
                 if (isInside(mouseX, mouseY, x, y, InventoryPanelRenderer.SLOT_SIZE, InventoryPanelRenderer.SLOT_SIZE)) {
-                    ItemStack stack = player.getInventory().getItem(slot);
+                    ItemStack stack = player.getInventory().getItem(InventoryPanelRenderer.inventoryIndexForDisplaySlot(slot));
                     if (!stack.isEmpty() && stack.isEdible()) {
                         suggestedItem = stack.copyWithCount(1);
                     }

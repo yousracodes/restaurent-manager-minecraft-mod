@@ -1,6 +1,5 @@
 package com.restaurantmanager.client;
 
-import com.restaurantmanager.RestaurantManagerMod;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.resources.ResourceLocation;
@@ -10,21 +9,42 @@ final class InventoryPanelRenderer {
     static final int SLOT_SIZE = 18;
     static final int COLUMNS = 9;
     static final int ROWS = 4;
-    static final int PANEL_WIDTH = 172;
-    static final int PANEL_HEIGHT = 73;
-    static final int PANEL_MARGIN_X = 5;
-    static final int PANEL_MARGIN_Y = 1;
+    static final int PANEL_WIDTH = 176;
+    static final int PANEL_HEIGHT = 90;
+    static final int PANEL_MARGIN_X = 7;
+    static final int PANEL_MARGIN_Y = 7;
     static final int SLOT_STEP = 18;
+    static final int DISPLAY_SLOT_COUNT = 36;
 
     private static final ResourceLocation TEXTURE =
-            new ResourceLocation(RestaurantManagerMod.MODID, "textures/gui/inventory_panel.png");
+            new ResourceLocation("textures/gui/container/inventory.png");
+    private static final int INVENTORY_TEXTURE_Y = 76;
+    private static final int HOTBAR_Y = 58;
 
     private InventoryPanelRenderer() {
     }
 
     static void drawPanel(GuiGraphics graphics, int gridX, int gridY) {
-        graphics.blit(TEXTURE, gridX - PANEL_MARGIN_X, gridY - PANEL_MARGIN_Y, 0, 0,
-                PANEL_WIDTH, PANEL_HEIGHT, PANEL_WIDTH, PANEL_HEIGHT);
+        graphics.blit(TEXTURE, gridX - PANEL_MARGIN_X, gridY - PANEL_MARGIN_Y, 0, INVENTORY_TEXTURE_Y,
+                PANEL_WIDTH, PANEL_HEIGHT);
+    }
+
+    static int slotX(int gridX, int displaySlot) {
+        return gridX + (displaySlot % COLUMNS) * SLOT_STEP;
+    }
+
+    static int slotY(int gridY, int displaySlot) {
+        if (displaySlot < 3 * COLUMNS) {
+            return gridY + (displaySlot / COLUMNS) * SLOT_STEP;
+        }
+        return gridY + HOTBAR_Y;
+    }
+
+    static int inventoryIndexForDisplaySlot(int displaySlot) {
+        if (displaySlot < 3 * COLUMNS) {
+            return displaySlot + COLUMNS;
+        }
+        return displaySlot - 3 * COLUMNS;
     }
 
     static void drawHighlight(GuiGraphics graphics, int x, int y, boolean valid) {

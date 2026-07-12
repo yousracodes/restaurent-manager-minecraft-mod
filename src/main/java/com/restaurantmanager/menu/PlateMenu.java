@@ -46,7 +46,7 @@ public class PlateMenu extends AbstractContainerMenu {
         }
 
         for (int column = 0; column < 9; column++) {
-            addSlot(new Slot(inventory, column, 48 + column * 18, 207));
+            addSlot(new Slot(inventory, column, 48 + column * 18, 211));
         }
     }
 

@@ -1,6 +1,5 @@
 package com.restaurantmanager.client;
 
-import com.restaurantmanager.RestaurantManagerMod;
 import com.restaurantmanager.menu.TakeoutPackageMenu;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
@@ -10,14 +9,12 @@ import net.minecraft.world.entity.player.Inventory;
 
 public class TakeoutPackageScreen extends AbstractContainerScreen<TakeoutPackageMenu> {
     private static final ResourceLocation TEXTURE =
-            new ResourceLocation(RestaurantManagerMod.MODID, "textures/gui/takeout_package.png");
-    private static final ResourceLocation INVENTORY_TEXTURE =
-            new ResourceLocation(RestaurantManagerMod.MODID, "textures/gui/inventory_panel.png");
+            new ResourceLocation("restaurantmanager", "textures/gui/takeout_package.png");
 
     public TakeoutPackageScreen(TakeoutPackageMenu menu, Inventory inventory, Component title) {
         super(menu, inventory, title);
         imageWidth = 256;
-        imageHeight = 227;
+        imageHeight = 230;
         titleLabelX = 48;
         titleLabelY = 12;
         inventoryLabelX = 48;
@@ -27,7 +24,7 @@ public class TakeoutPackageScreen extends AbstractContainerScreen<TakeoutPackage
     @Override
     protected void renderBg(GuiGraphics graphics, float partialTick, int mouseX, int mouseY) {
         graphics.blit(TEXTURE, leftPos, topPos, 0, 0, 256, 144, 256, 144);
-        graphics.blit(INVENTORY_TEXTURE, leftPos + 42, topPos + 140, 0, 0, 172, 73, 172, 73);
+        InventoryPanelRenderer.drawPanel(graphics, leftPos + 48, topPos + 145);
     }
 
     @Override
