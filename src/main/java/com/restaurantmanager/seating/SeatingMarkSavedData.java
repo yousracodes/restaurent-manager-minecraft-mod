@@ -16,6 +16,7 @@ import net.minecraft.world.phys.Vec3;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
+import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -26,6 +27,7 @@ public class SeatingMarkSavedData extends SavedData {
     private static final String KEY = RestaurantManagerMod.MODID + "_seating_marks";
 
     private final Map<BlockPos, MarkedPoint> marks = new HashMap<>();
+    private final Map<MarkType, List<MarkedPoint>> marksByType = new EnumMap<>(MarkType.class);
     private final Map<BlockPos, UUID> occupiedSeats = new HashMap<>();
     private final Map<BlockPos, UUID> occupiedQueueSpots = new HashMap<>();
     private final Map<BlockPos, UUID> occupiedCounters = new HashMap<>();
@@ -44,7 +46,7 @@ public class SeatingMarkSavedData extends SavedData {
             MarkType type = MarkType.valueOf(tag.getString("type"));
             ResourceKey<Level> dimension = readDimension(tag, fallbackDimension);
             Vec3 interactionPosition = new Vec3(tag.getDouble("x"), tag.getDouble("y"), tag.getDouble("z"));
-            data.marks.put(pos, new MarkedPoint(pos, dimension, type, interactionPosition));
+            data.putMark(new MarkedPoint(pos, dimension, type, interactionPosition));
             if (tag.hasUUID("occupiedBy")) {
                 UUID occupant = tag.getUUID("occupiedBy");
                 if (type == MarkType.SEAT) {
@@ -71,7 +73,7 @@ public class SeatingMarkSavedData extends SavedData {
     }
 
     public void mark(MarkedPoint point) {
-        marks.put(point.getPos(), point);
+        putMark(point);
         if (point.getType() != MarkType.SEAT) {
             occupiedSeats.remove(point.getPos());
         }
@@ -88,7 +90,9 @@ public class SeatingMarkSavedData extends SavedData {
     }
 
     public void unmark(BlockPos pos) {
-        if (marks.remove(pos) != null) {
+        MarkedPoint removed = marks.remove(pos);
+        if (removed != null) {
+            removeFromTypeIndex(removed);
             occupiedSeats.remove(pos);
             occupiedQueueSpots.remove(pos);
             occupiedCounters.remove(pos);
@@ -164,42 +168,40 @@ public class SeatingMarkSavedData extends SavedData {
 
     private List<MarkedPoint> getNearbyPoints(BlockPos restaurantCenter, double radius, MarkType... types) {
         double radiusSqr = radius * radius;
-        List<MarkType> allowedTypes = List.of(types);
-        return marks.values().stream()
-                .filter(point -> allowedTypes.contains(point.getType()))
-                .filter(point -> point.getPos().distSqr(restaurantCenter) <= radiusSqr)
-                .sorted(Comparator.comparingDouble(point -> point.getPos().distSqr(restaurantCenter)))
-                .toList();
+        List<MarkedPoint> nearbyPoints = new ArrayList<>();
+        for (MarkType type : types) {
+            for (MarkedPoint point : getPointsByType(type)) {
+                if (point.getPos().distSqr(restaurantCenter) <= radiusSqr) {
+                    nearbyPoints.add(point);
+                }
+            }
+        }
+        nearbyPoints.sort(Comparator.comparingDouble(point -> point.getPos().distSqr(restaurantCenter)));
+        return List.copyOf(nearbyPoints);
     }
 
     public Optional<MarkedPoint> findNearestAvailableSeat(BlockPos center, double radius) {
-        return getNearbySeats(center, radius).stream()
-                .filter(point -> !isSeatOccupied(point.getPos()))
-                .findFirst();
+        return findNearest(center, radius, point -> !isSeatOccupied(point.getPos()), MarkType.SEAT);
     }
 
     public Optional<MarkedPoint> findNearestAvailableQueueSpot(BlockPos center, double radius) {
-        return getNearbyQueueSpots(center, radius).stream()
-                .filter(point -> !isQueueSpotOccupied(point.getPos()))
-                .findFirst();
+        return findNearest(center, radius, point -> !isQueueSpotOccupied(point.getPos()), MarkType.QUEUE);
     }
 
     public Optional<MarkedPoint> findNearestAvailableCounter(BlockPos center, double radius) {
-        return getNearbyCounters(center, radius).stream()
-                .filter(point -> !isCounterOccupied(point.getPos()))
-                .findFirst();
+        return findNearest(center, radius, point -> !isCounterOccupied(point.getPos()), MarkType.COUNTER);
     }
 
     public Optional<MarkedPoint> findNearestTable(BlockPos center, double radius) {
-        return getNearbyTables(center, radius).stream().findFirst();
+        return findNearest(center, radius, point -> true, MarkType.TABLE);
     }
 
     public Optional<MarkedPoint> findNearestEntrance(BlockPos center, double radius) {
-        return getNearbyEntrances(center, radius).stream().findFirst();
+        return findNearest(center, radius, point -> true, MarkType.ENTRANCE, MarkType.DOOR_BELL);
     }
 
     public Optional<MarkedPoint> findNearestExit(BlockPos center, double radius) {
-        return getNearbyExits(center, radius).stream().findFirst();
+        return findNearest(center, radius, point -> true, MarkType.EXIT, MarkType.DOOR_BELL);
     }
 
     public Optional<BlockPos> getLinkedTable(BlockPos seatPos) {
@@ -299,6 +301,49 @@ public class SeatingMarkSavedData extends SavedData {
             }
         }
         return Optional.empty();
+    }
+
+    private void putMark(MarkedPoint point) {
+        MarkedPoint replaced = marks.put(point.getPos(), point);
+        if (replaced != null) {
+            removeFromTypeIndex(replaced);
+        }
+        marksByType.computeIfAbsent(point.getType(), type -> new ArrayList<>()).add(point);
+    }
+
+    private void removeFromTypeIndex(MarkedPoint point) {
+        List<MarkedPoint> points = marksByType.get(point.getType());
+        if (points != null) {
+            points.removeIf(indexedPoint -> indexedPoint.getPos().equals(point.getPos()));
+            if (points.isEmpty()) {
+                marksByType.remove(point.getType());
+            }
+        }
+    }
+
+    private List<MarkedPoint> getPointsByType(MarkType type) {
+        return marksByType.getOrDefault(type, List.of());
+    }
+
+    private Optional<MarkedPoint> findNearest(BlockPos center, double radius, PointFilter filter, MarkType... types) {
+        double radiusSqr = radius * radius;
+        MarkedPoint nearest = null;
+        double nearestDistance = Double.MAX_VALUE;
+        for (MarkType type : types) {
+            for (MarkedPoint point : getPointsByType(type)) {
+                double distance = point.getPos().distSqr(center);
+                if (distance <= radiusSqr && distance < nearestDistance && filter.matches(point)) {
+                    nearest = point;
+                    nearestDistance = distance;
+                }
+            }
+        }
+        return Optional.ofNullable(nearest);
+    }
+
+    @FunctionalInterface
+    private interface PointFilter {
+        boolean matches(MarkedPoint point);
     }
 
     @Override

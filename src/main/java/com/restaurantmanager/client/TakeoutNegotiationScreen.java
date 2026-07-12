@@ -18,6 +18,8 @@ public class TakeoutNegotiationScreen extends Screen {
     private static final ResourceLocation BACKGROUND = new ResourceLocation("restaurantmanager", "textures/gui/takeout_negotiation.png");
     private static final int TEXTURE_WIDTH = 430;
     private static final int TEXTURE_HEIGHT = 504;
+    private static final int ITEM_RENDER_SIZE = 16;
+    private static final int SUGGESTION_SLOT_TEXTURE_SIZE = 45;
     private static final int INVENTORY_GAP = 8;
     private static final int MIN_GUI_WIDTH = 260;
 
@@ -116,10 +118,13 @@ public class TakeoutNegotiationScreen extends Screen {
     private void renderSuggestionSlot(GuiGraphics graphics, int mouseX, int mouseY) {
         int slotX = x(206);
         int slotY = y(267);
+        int slotSize = Math.max(18, Math.min(w(SUGGESTION_SLOT_TEXTURE_SIZE), h(SUGGESTION_SLOT_TEXTURE_SIZE)));
+        int itemX = slotX + (slotSize - ITEM_RENDER_SIZE) / 2;
+        int itemY = slotY + (slotSize - ITEM_RENDER_SIZE) / 2;
         if (!suggestedItem.isEmpty()) {
-            graphics.renderItem(suggestedItem, slotX, slotY);
-            graphics.renderItemDecorations(this.font, suggestedItem, slotX, slotY);
-            if (isInside(mouseX, mouseY, slotX, slotY, 18, 18)) {
+            graphics.renderItem(suggestedItem, itemX, itemY);
+            graphics.renderItemDecorations(this.font, suggestedItem, itemX, itemY);
+            if (isInside(mouseX, mouseY, slotX, slotY, slotSize, slotSize)) {
                 graphics.renderTooltip(this.font, suggestedItem, mouseX, mouseY);
             }
         }
@@ -188,7 +193,8 @@ public class TakeoutNegotiationScreen extends Screen {
             }
         }
 
-        if (isInside(mouseX, mouseY, x(206), y(267), 18, 18)) {
+        int suggestionSlotSize = Math.max(18, Math.min(w(SUGGESTION_SLOT_TEXTURE_SIZE), h(SUGGESTION_SLOT_TEXTURE_SIZE)));
+        if (isInside(mouseX, mouseY, x(206), y(267), suggestionSlotSize, suggestionSlotSize)) {
             suggestedItem = ItemStack.EMPTY;
             return true;
         }
