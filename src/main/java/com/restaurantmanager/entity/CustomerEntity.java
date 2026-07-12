@@ -188,6 +188,7 @@ public abstract class CustomerEntity extends PathfinderMob {
         }
         if (reservedCounterPos != null) {
             compound.put("ReservedCounter", NbtUtils.writeBlockPos(reservedCounterPos));
+            compound.putInt("ReservedCounterSlot", reservedCounterSlot);
         }
         if (assignedTablePos != null) {
             compound.put("AssignedTable", NbtUtils.writeBlockPos(assignedTablePos));
@@ -225,11 +226,12 @@ public abstract class CustomerEntity extends PathfinderMob {
         reservedSeatPos = compound.contains("ReservedSeat") ? NbtUtils.readBlockPos(compound.getCompound("ReservedSeat")) : null;
         reservedQueuePos = compound.contains("ReservedQueue") ? NbtUtils.readBlockPos(compound.getCompound("ReservedQueue")) : null;
         reservedCounterPos = compound.contains("ReservedCounter") ? NbtUtils.readBlockPos(compound.getCompound("ReservedCounter")) : null;
+        reservedCounterSlot = compound.contains("ReservedCounterSlot") ? compound.getInt("ReservedCounterSlot") : -1;
         assignedTablePos = compound.contains("AssignedTable") ? NbtUtils.readBlockPos(compound.getCompound("AssignedTable")) : null;
         servedPlatePos = compound.contains("ServedPlate") ? NbtUtils.readBlockPos(compound.getCompound("ServedPlate")) : null;
         seatTarget = reservedSeatPos == null ? null : getSeatTarget(reservedSeatPos);
         queueTarget = reservedQueuePos == null ? null : Vec3.atBottomCenterOf(reservedQueuePos);
-        counterTarget = reservedCounterPos == null ? null : Vec3.atBottomCenterOf(reservedCounterPos.above());
+        counterTarget = null;
         updateRequestName();
     }
 
@@ -534,10 +536,13 @@ public abstract class CustomerEntity extends PathfinderMob {
             if (restaurant != null) {
                 this.restaurantId = restaurant.getId();
                 updateRestaurantTargets(serverLevel);
-                if (entranceTarget != null) {
-                    this.setPos(entranceTarget.x, entranceTarget.y, entranceTarget.z);
-                } else {
-                    this.setPos(restaurant.getSignPos().getX() + 1.5, restaurant.getSignPos().getY(), restaurant.getSignPos().getZ() + 0.5);
+                restoreReservedCounterAfterLoad();
+                if (state == CustomerState.SPAWN) {
+                    if (entranceTarget != null) {
+                        this.setPos(entranceTarget.x, entranceTarget.y, entranceTarget.z);
+                    } else {
+                        this.setPos(restaurant.getSignPos().getX() + 1.5, restaurant.getSignPos().getY(), restaurant.getSignPos().getZ() + 0.5);
+                    }
                 }
                 updateRequestName();
             } else {
@@ -1306,6 +1311,28 @@ public abstract class CustomerEntity extends PathfinderMob {
         Vec3 baseTarget = getCounterTarget(reservedCounterPos, serverLevel)
                 .orElse(Vec3.atBottomCenterOf(reservedCounterPos.above()));
         counterTarget = offsetCounterTargetForSlot(baseTarget, reservedCounterPos, serverLevel);
+    }
+
+    private void restoreReservedCounterAfterLoad() {
+        if (restaurant == null || reservedCounterPos == null || serviceType != CustomerServiceType.TAKEOUT) {
+            return;
+        }
+
+        CounterSlotKey key = new CounterSlotKey(restaurant.getId(), reservedCounterPos);
+        UUID[] slots = TAKEOUT_COUNTER_SLOTS.computeIfAbsent(key, ignored -> new UUID[TAKEOUT_COUNTER_SLOT_COUNT]);
+        UUID customerId = this.getUUID();
+        if (reservedCounterSlot >= 0 && reservedCounterSlot < slots.length) {
+            UUID occupant = slots[reservedCounterSlot];
+            if (occupant == null || customerId.equals(occupant)) {
+                slots[reservedCounterSlot] = customerId;
+                refreshCounterTarget();
+                return;
+            }
+        }
+
+        reservedCounterSlot = -1;
+        reserveTakeoutCounterSlot(reservedCounterPos);
+        refreshCounterTarget();
     }
 
     protected boolean canLeaveQueueForSeat() {
