@@ -9,6 +9,7 @@ import net.minecraftforge.registries.ForgeRegistries;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Random;
 
@@ -34,6 +35,12 @@ public class FoodRegistryScanner {
 
     public static boolean hasEdibleFoods() {
         return !edibleItems.isEmpty();
+    }
+
+    public static List<Item> getEdibleItems() {
+        List<Item> items = new ArrayList<>(edibleItems);
+        items.sort(Comparator.comparing(item -> new ItemStack(item).getHoverName().getString().toLowerCase()));
+        return items;
     }
 
     public static Item getRandomFood() {
