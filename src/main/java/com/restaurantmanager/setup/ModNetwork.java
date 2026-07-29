@@ -1,6 +1,7 @@
 package com.restaurantmanager.network;
 
 import com.restaurantmanager.network.packet.OpenRestaurantManagementPacket;
+import com.restaurantmanager.network.packet.OpenRestaurantMenuEditorPacket;
 import com.restaurantmanager.network.packet.OpenRestaurantMenuPacket;
 import com.restaurantmanager.network.packet.OpenCustomerSuggestionPacket;
 import com.restaurantmanager.network.packet.OpenTakeoutNegotiationPacket;
@@ -9,6 +10,7 @@ import com.restaurantmanager.network.packet.RenameRestaurantPacket;
 import com.restaurantmanager.network.packet.RemoveRestaurantMenuPacket;
 import com.restaurantmanager.network.packet.RequestRestaurantMenuPacket;
 import com.restaurantmanager.network.packet.SaveMenuItemPacket;
+import com.restaurantmanager.network.packet.SaveRestaurantMenuPacket;
 import com.restaurantmanager.network.packet.ServeCustomerPacket;
 import com.restaurantmanager.network.packet.ToggleRestaurantOpenPacket;
 import com.restaurantmanager.network.packet.UpdateRestaurantMenuPacket;
@@ -85,6 +87,13 @@ public class ModNetwork {
         );
         CHANNEL.registerMessage(
                 nextId(),
+                OpenRestaurantMenuEditorPacket.class,
+                OpenRestaurantMenuEditorPacket::encode,
+                OpenRestaurantMenuEditorPacket::decode,
+                OpenRestaurantMenuEditorPacket::handle
+        );
+        CHANNEL.registerMessage(
+                nextId(),
                 UpdateRestaurantMenuPacket.class,
                 UpdateRestaurantMenuPacket::encode,
                 UpdateRestaurantMenuPacket::decode,
@@ -96,6 +105,13 @@ public class ModNetwork {
                 SaveMenuItemPacket::encode,
                 SaveMenuItemPacket::decode,
                 SaveMenuItemPacket::handle
+        );
+        CHANNEL.registerMessage(
+                nextId(),
+                SaveRestaurantMenuPacket.class,
+                SaveRestaurantMenuPacket::encode,
+                SaveRestaurantMenuPacket::decode,
+                SaveRestaurantMenuPacket::handle
         );
         CHANNEL.registerMessage(
                 nextId(),

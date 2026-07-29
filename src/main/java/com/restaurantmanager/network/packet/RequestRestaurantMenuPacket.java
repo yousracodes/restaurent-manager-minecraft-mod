@@ -49,9 +49,10 @@ public class RequestRestaurantMenuPacket {
                 player.sendSystemMessage(Component.literal("No registered restaurant found for this sign."));
                 return;
             }
+            com.restaurantmanager.restaurant.RestaurantMenu menu = restaurant.getOrCreateMenu(packet.category);
             ModNetwork.CHANNEL.send(
                     PacketDistributor.PLAYER.with(() -> player),
-                    new OpenRestaurantMenuPacket(packet.signPos, packet.category, restaurant.getOrCreateMenu(packet.category).getItems())
+                    new OpenRestaurantMenuEditorPacket(packet.signPos, menu.getTitle(), packet.category, menu.getItems())
             );
         });
         context.setPacketHandled(true);

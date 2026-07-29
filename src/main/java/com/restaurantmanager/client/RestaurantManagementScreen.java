@@ -13,15 +13,15 @@ import net.minecraft.resources.ResourceLocation;
 
 public class RestaurantManagementScreen extends Screen {
     private static final ResourceLocation BACKGROUND = new ResourceLocation("restaurantmanager", "textures/gui/restaurant_management.png");
-    private static final int TEXTURE_WIDTH = 1699;
-    private static final int TEXTURE_HEIGHT = 1651;
-    private static final int GUI_SOURCE_X = 232;
-    private static final int GUI_SOURCE_Y = 312;
-    private static final int GUI_SOURCE_WIDTH = 1244;
-    private static final int GUI_SOURCE_HEIGHT = 1164;
-    private static final int TITLE_CENTER_TEXTURE_X = 622;
+    private static final int TEXTURE_WIDTH = 2000;
+    private static final int TEXTURE_HEIGHT = 1960;
+    private static final int GUI_SOURCE_X = 249;
+    private static final int GUI_SOURCE_Y = 299;
+    private static final int GUI_SOURCE_WIDTH = 1502;
+    private static final int GUI_SOURCE_HEIGHT = 1392;
+    private static final int TITLE_CENTER_TEXTURE_X = 751;
     private static final int TITLE_TEXTURE_Y = 72;
-    private static final int STATS_CENTER_TEXTURE_X = 622;
+    private static final int STATS_CENTER_TEXTURE_X = 751;
     private static final int STATS_START_TEXTURE_Y = 428;
     private static final int NAME_TEXT_COLOR = 0x5A2B13;
     private static final int PLATE_TEXT_COLOR = 0x5A2B13;
@@ -96,19 +96,19 @@ public class RestaurantManagementScreen extends Screen {
         this.leftPos = (this.width - this.guiWidth) / 2;
         this.topPos = (this.height - this.guiHeight) / 2;
 
-        this.nameBox = new EditBox(this.font, textureX(205), textureY(TITLE_TEXTURE_Y), textureWidth(834), 18, Component.literal("Restaurant Name"));
+        this.nameBox = new EditBox(this.font, textureX(247), textureY(TITLE_TEXTURE_Y), textureWidth(1007), 18, Component.literal("Restaurant Name"));
         this.nameBox.setValue(this.restaurantName);
         this.nameBox.setMaxLength(32);
         this.nameBox.setBordered(false);
         this.nameBox.setTextColor(NAME_TEXT_COLOR);
         this.addRenderableWidget(this.nameBox);
 
-        this.menuX = textureX(112);
-        this.toggleX = textureX(456);
-        this.closeX = textureX(800);
-        this.buttonY = textureY(884);
-        this.buttonWidth = textureWidth(320);
-        this.buttonHeight = textureHeight(124);
+        this.menuX = textureX(135);
+        this.toggleX = textureX(550);
+        this.closeX = textureX(966);
+        this.buttonY = textureY(1057);
+        this.buttonWidth = textureWidth(386);
+        this.buttonHeight = textureHeight(148);
     }
 
     @Override
@@ -138,7 +138,7 @@ public class RestaurantManagementScreen extends Screen {
 
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
-        if (button == 1 && isInside(mouseX, mouseY, textureX(190), textureY(10), textureWidth(864), textureHeight(160))) {
+        if (button == 1 && isInside(mouseX, mouseY, textureX(229), textureY(12), textureWidth(1043), textureHeight(191))) {
             this.nameBox.setFocused(true);
             return true;
         }

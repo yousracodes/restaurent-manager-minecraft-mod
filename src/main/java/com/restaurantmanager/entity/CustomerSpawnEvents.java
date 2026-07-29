@@ -7,16 +7,19 @@ import com.restaurantmanager.setup.ModEntities;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.MobSpawnType;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.phys.AABB;
 import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Random;
+import java.util.UUID;
 
 public class CustomerSpawnEvents {
     private static final Random RANDOM = new Random();
@@ -32,13 +35,14 @@ public class CustomerSpawnEvents {
 
         for (ServerLevel level : event.getServer().getAllLevels()) {
             RestaurantManager manager = RestaurantManager.get(level);
+            Map<UUID, Integer> customerCounts = countCustomersByRestaurant(level);
             for (Restaurant restaurant : manager.getRestaurants()) {
-                trySpawnCustomer(level, restaurant);
+                trySpawnCustomer(level, restaurant, customerCounts);
             }
         }
     }
 
-    private void trySpawnCustomer(ServerLevel level, Restaurant restaurant) {
+    private void trySpawnCustomer(ServerLevel level, Restaurant restaurant, Map<UUID, Integer> customerCounts) {
         if (!restaurant.isActive() || !restaurant.isOpen()) {
             return;
         }
@@ -47,7 +51,7 @@ public class CustomerSpawnEvents {
             return;
         }
         int stars = restaurant.getStarRating();
-        if (countCustomersForRestaurant(level, restaurant) >= getCustomerCap(stars)) {
+        if (customerCounts.getOrDefault(restaurant.getId(), 0) >= getCustomerCap(stars)) {
             return;
         }
         if (RANDOM.nextFloat() > getSpawnChance(stars)) {
@@ -66,6 +70,7 @@ public class CustomerSpawnEvents {
         CustomerEntity customer = customerType.spawn(level, spawnPos.get(), MobSpawnType.TRIGGERED);
         if (customer != null) {
             customer.assignRestaurant(restaurant);
+            customerCounts.merge(restaurant.getId(), 1, Integer::sum);
         }
     }
 
@@ -87,17 +92,14 @@ public class CustomerSpawnEvents {
                 && !level.getBlockState(pos.below()).getCollisionShape(level, pos.below()).isEmpty();
     }
 
-    private int countCustomersForRestaurant(ServerLevel level, Restaurant restaurant) {
-        AABB searchBounds = restaurant.getBounds().inflate(96.0);
-        int count = 0;
-        for (EntityType<? extends CustomerEntity> customerType : ModEntities.customerTypes()) {
-            count += level.getEntities(
-                    customerType,
-                    searchBounds,
-                    customer -> restaurant.getId().equals(customer.getRestaurantId())
-            ).size();
+    private Map<UUID, Integer> countCustomersByRestaurant(ServerLevel level) {
+        Map<UUID, Integer> counts = new HashMap<>();
+        for (Entity entity : level.getEntities().getAll()) {
+            if (entity instanceof CustomerEntity customer && customer.getRestaurantId() != null) {
+                counts.merge(customer.getRestaurantId(), 1, Integer::sum);
+            }
         }
-        return count;
+        return counts;
     }
 
     private int getCustomerCap(int stars) {

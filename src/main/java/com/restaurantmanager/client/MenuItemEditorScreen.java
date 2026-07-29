@@ -3,12 +3,14 @@ package com.restaurantmanager.client;
 import com.restaurantmanager.food.FoodRegistryScanner;
 import com.restaurantmanager.item.RestaurantMenuItem;
 import com.restaurantmanager.network.ModNetwork;
+import com.restaurantmanager.network.packet.SaveRestaurantMenuPacket;
 import com.restaurantmanager.network.packet.SaveMenuItemPacket;
 import com.restaurantmanager.restaurant.MenuCategory;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.InteractionHand;
@@ -37,6 +39,8 @@ public class MenuItemEditorScreen extends Screen {
     private static final float ITEM_ICON_SCALE = 0.7F;
 
     private final InteractionHand hand;
+    private final BlockPos restaurantSignPos;
+    private final String initialTitle;
     private final List<ItemStack> foodCatalog = new ArrayList<>();
     private final List<ItemStack> filteredFoods = new ArrayList<>();
     private final List<ResourceLocation> selectedItems = new ArrayList<>();
@@ -83,8 +87,23 @@ public class MenuItemEditorScreen extends Screen {
     public MenuItemEditorScreen(InteractionHand hand, ItemStack stack) {
         super(Component.literal("Restaurant Menu"));
         this.hand = hand;
+        this.restaurantSignPos = null;
+        this.initialTitle = RestaurantMenuItem.getMenuTitle(stack);
         this.selectedItems.addAll(RestaurantMenuItem.getMenuItems(stack));
         this.category = RestaurantMenuItem.getMenuCategory(stack);
+        loadFoodCatalog();
+        updateFilteredFoods();
+    }
+
+    public MenuItemEditorScreen(BlockPos restaurantSignPos, String title, MenuCategory category, List<ResourceLocation> items) {
+        super(Component.literal("Restaurant Menu"));
+        this.hand = null;
+        this.restaurantSignPos = restaurantSignPos;
+        this.initialTitle = title == null ? "" : title;
+        this.category = category == null ? MenuCategory.MAIN_DISH : category;
+        if (items != null) {
+            this.selectedItems.addAll(items);
+        }
         loadFoodCatalog();
         updateFilteredFoods();
     }
@@ -132,8 +151,7 @@ public class MenuItemEditorScreen extends Screen {
 
         this.menuNameBox = new EditBox(this.font, this.menuNameX, this.menuNameY, this.menuNameWidth, 16,
                 Component.literal("Menu Name"));
-        ItemStack stack = Minecraft.getInstance().player == null ? ItemStack.EMPTY : Minecraft.getInstance().player.getItemInHand(this.hand);
-        this.menuNameBox.setValue(RestaurantMenuItem.getMenuTitle(stack));
+        this.menuNameBox.setValue(this.initialTitle);
         this.menuNameBox.setMaxLength(64);
         this.menuNameBox.setBordered(false);
         this.menuNameBox.setTextColor(DARK_TEXT_COLOR);
@@ -387,6 +405,11 @@ public class MenuItemEditorScreen extends Screen {
     }
 
     private void saveMenu() {
+        if (this.restaurantSignPos != null) {
+            ModNetwork.CHANNEL.sendToServer(new SaveRestaurantMenuPacket(this.restaurantSignPos,
+                    this.menuNameBox.getValue(), this.category, this.selectedItems));
+            return;
+        }
         ModNetwork.CHANNEL.sendToServer(new SaveMenuItemPacket(this.hand, this.menuNameBox.getValue(), this.category, this.selectedItems));
     }
 

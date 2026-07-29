@@ -1,6 +1,7 @@
 package com.restaurantmanager.client;
 
 import com.restaurantmanager.network.ModNetwork;
+import com.restaurantmanager.network.packet.RequestRestaurantMenuPacket;
 import com.restaurantmanager.network.packet.RemoveRestaurantMenuPacket;
 import com.restaurantmanager.restaurant.MenuCategory;
 import net.minecraft.client.Minecraft;
@@ -12,12 +13,21 @@ import net.minecraft.resources.ResourceLocation;
 
 public class RestaurantMenuManagerScreen extends Screen {
     private static final ResourceLocation BACKGROUND = new ResourceLocation("restaurantmanager", "textures/gui/restaurant_menu_manager.png");
-    private static final int TEXTURE_WIDTH = 1792;
-    private static final int TEXTURE_HEIGHT = 1024;
-    private static final int[] CARD_X = {318, 918, 318, 918, 318, 918};
-    private static final int[] CARD_Y = {286, 286, 455, 455, 623, 623};
-    private static final int CARD_WIDTH = 575;
-    private static final int CARD_HEIGHT = 132;
+    private static final int TEXTURE_WIDTH = 2680;
+    private static final int TEXTURE_HEIGHT = 1480;
+    private static final int GUI_SOURCE_X = 338;
+    private static final int GUI_SOURCE_Y = 79;
+    private static final int GUI_SOURCE_WIDTH = 2013;
+    private static final int GUI_SOURCE_HEIGHT = 1304;
+    private static final int[] CARD_X = {137, 1034, 137, 1034, 137, 1034};
+    private static final int[] CARD_Y = {334, 334, 578, 578, 822, 822};
+    private static final int CARD_WIDTH = 860;
+    private static final int CARD_HEIGHT = 191;
+    private static final int CARD_TEXT_INSET = 245;
+    private static final int CARD_TEXT_RIGHT_PADDING = 78;
+    private static final int REMOVE_BUTTON_X_OFFSET = 744;
+    private static final int REMOVE_BUTTON_Y_OFFSET = 22;
+    private static final int REMOVE_BUTTON_SIZE = 64;
 
     private final RestaurantManagementScreen parent;
     private final BlockPos signPos;
@@ -38,8 +48,8 @@ public class RestaurantMenuManagerScreen extends Screen {
 
     @Override
     protected void init() {
-        this.guiWidth = Math.min(this.width - 20, (this.height - 20) * TEXTURE_WIDTH / TEXTURE_HEIGHT);
-        this.guiHeight = this.guiWidth * TEXTURE_HEIGHT / TEXTURE_WIDTH;
+        this.guiWidth = Math.min(this.width - 20, (this.height - 20) * GUI_SOURCE_WIDTH / GUI_SOURCE_HEIGHT);
+        this.guiHeight = this.guiWidth * GUI_SOURCE_HEIGHT / GUI_SOURCE_WIDTH;
         this.leftPos = (this.width - this.guiWidth) / 2;
         this.topPos = (this.height - this.guiHeight) / 2;
     }
@@ -48,7 +58,7 @@ public class RestaurantMenuManagerScreen extends Screen {
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
         this.renderBackground(graphics);
         graphics.blit(BACKGROUND, this.leftPos, this.topPos, this.guiWidth, this.guiHeight,
-                0.0F, 0.0F, TEXTURE_WIDTH, TEXTURE_HEIGHT, TEXTURE_WIDTH, TEXTURE_HEIGHT);
+                GUI_SOURCE_X, GUI_SOURCE_Y, GUI_SOURCE_WIDTH, GUI_SOURCE_HEIGHT, TEXTURE_WIDTH, TEXTURE_HEIGHT);
 
         drawCards(graphics, mouseX, mouseY);
         drawBackButton(graphics, mouseX, mouseY);
@@ -68,16 +78,14 @@ public class RestaurantMenuManagerScreen extends Screen {
                         y + height - textureHeight(14), 0x24FFFFFF);
             }
 
-            int textX = x + textureWidth(170);
+            int textX = x + textureWidth(CARD_TEXT_INSET);
             int textY = y + textureHeight(27);
-            int textWidth = width - textureWidth(225);
+            int textWidth = width - textureWidth(CARD_TEXT_INSET + CARD_TEXT_RIGHT_PADDING);
             drawStringWithShadow(graphics, category.getDisplayName(), textX, textY, 0x3A220F);
 
             String title = this.menuTitles[category.ordinal()];
-            int count = this.menuItemCounts[category.ordinal()];
             if (hasMenu(category)) {
                 drawFittedString(graphics, title.isBlank() ? "Untitled menu" : title, textX, textY + 13, textWidth, 0x5A381A);
-                drawStringWithShadow(graphics, count + " item(s)", textX, textY + 25, 0x7A5431);
                 drawRemoveButton(graphics, category, mouseX, mouseY);
             } else {
                 drawFittedString(graphics, "No menu selected", textX, textY + 17, textWidth, 0x7A5431);
@@ -87,19 +95,19 @@ public class RestaurantMenuManagerScreen extends Screen {
 
     private void drawRemoveButton(GuiGraphics graphics, MenuCategory category, int mouseX, int mouseY) {
         int index = category.ordinal();
-        int x = textureX(CARD_X[index] + CARD_WIDTH - 54);
-        int y = textureY(CARD_Y[index] + 24);
-        int size = textureWidth(28);
+        int x = textureX(CARD_X[index] + REMOVE_BUTTON_X_OFFSET);
+        int y = textureY(CARD_Y[index] + REMOVE_BUTTON_Y_OFFSET);
+        int size = textureWidth(REMOVE_BUTTON_SIZE);
         boolean hovered = isInside(mouseX, mouseY, x, y, size, size);
         graphics.fill(x, y, x + size, y + size, hovered ? 0xAA8E2F20 : 0x885A2A1F);
         graphics.drawCenteredString(this.font, Component.literal("x"), x + size / 2, y + Math.max(2, (size - 8) / 2), 0xFFF2D2);
     }
 
     private void drawBackButton(GuiGraphics graphics, int mouseX, int mouseY) {
-        int x = textureX(362);
-        int y = textureY(817);
-        int width = textureWidth(120);
-        int height = textureHeight(54);
+        int x = textureX(203);
+        int y = textureY(1102);
+        int width = textureWidth(179);
+        int height = textureHeight(78);
         if (isInside(mouseX, mouseY, x, y, width, height)) {
             graphics.fill(x, y, x + width, y + height, 0x22FFFFFF);
         }
@@ -108,13 +116,13 @@ public class RestaurantMenuManagerScreen extends Screen {
 
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
-        if (isInside(mouseX, mouseY, textureX(362), textureY(817), textureWidth(120), textureHeight(54))) {
+        if (isInside(mouseX, mouseY, textureX(203), textureY(1102), textureWidth(179), textureHeight(78))) {
             Minecraft.getInstance().setScreen(parent);
             return true;
         }
 
         MenuCategory removeCategory = getRemoveCategory(mouseX, mouseY);
-        if (removeCategory != null && hasMenu(removeCategory)) {
+        if (button == 0 && removeCategory != null && hasMenu(removeCategory)) {
             clearMenu(removeCategory);
             ModNetwork.CHANNEL.sendToServer(new RemoveRestaurantMenuPacket(this.signPos, removeCategory));
             return true;
@@ -122,6 +130,10 @@ public class RestaurantMenuManagerScreen extends Screen {
 
         MenuCategory category = getCardCategory(mouseX, mouseY);
         if (category != null) {
+            if (button == 1 && hasMenu(category)) {
+                ModNetwork.CHANNEL.sendToServer(new RequestRestaurantMenuPacket(this.signPos, category));
+                return true;
+            }
             Minecraft.getInstance().setScreen(new RestaurantMenuSelectionScreen(this, this.signPos, category));
             return true;
         }
@@ -158,9 +170,9 @@ public class RestaurantMenuManagerScreen extends Screen {
     private MenuCategory getRemoveCategory(double mouseX, double mouseY) {
         MenuCategory[] categories = MenuCategory.values();
         for (int i = 0; i < categories.length; i++) {
-            int x = textureX(CARD_X[i] + CARD_WIDTH - 54);
-            int y = textureY(CARD_Y[i] + 24);
-            int size = textureWidth(28);
+            int x = textureX(CARD_X[i] + REMOVE_BUTTON_X_OFFSET);
+            int y = textureY(CARD_Y[i] + REMOVE_BUTTON_Y_OFFSET);
+            int size = textureWidth(REMOVE_BUTTON_SIZE);
             if (isInside(mouseX, mouseY, x, y, size, size)) {
                 return categories[i];
             }
@@ -182,19 +194,19 @@ public class RestaurantMenuManagerScreen extends Screen {
     }
 
     private int textureX(int textureX) {
-        return this.leftPos + textureX * this.guiWidth / TEXTURE_WIDTH;
+        return this.leftPos + textureX * this.guiWidth / GUI_SOURCE_WIDTH;
     }
 
     private int textureY(int textureY) {
-        return this.topPos + textureY * this.guiHeight / TEXTURE_HEIGHT;
+        return this.topPos + textureY * this.guiHeight / GUI_SOURCE_HEIGHT;
     }
 
     private int textureWidth(int textureWidth) {
-        return textureWidth * this.guiWidth / TEXTURE_WIDTH;
+        return textureWidth * this.guiWidth / GUI_SOURCE_WIDTH;
     }
 
     private int textureHeight(int textureHeight) {
-        return textureHeight * this.guiHeight / TEXTURE_HEIGHT;
+        return textureHeight * this.guiHeight / GUI_SOURCE_HEIGHT;
     }
 
     private static String[] normalizeTitles(String[] titles) {

@@ -35,6 +35,15 @@ public class TakeoutCustomerEntity extends CustomerEntity {
             player.displayClientMessage(Component.literal("The package is empty."), false);
             return false;
         }
+        Optional<ItemStack> unexpectedFood = findUnexpectedFood(foods);
+        if (unexpectedFood.isPresent()) {
+            String message = "Package has an item I didn't order: " + unexpectedFood.get().getHoverName().getString();
+            player.displayClientMessage(Component.literal(message), false);
+            reactToWrongOrder(message);
+            wrongOrderCooldown = 20 * 4;
+            return false;
+        }
+
         Optional<FoodRequest> missingRequest = findMissingTakeoutRequest(foods);
         if (missingRequest.isPresent()) {
             String message = "Package is missing: " + missingRequest.get().getDescription();

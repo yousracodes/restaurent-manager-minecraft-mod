@@ -2,6 +2,7 @@ package com.restaurantmanager.client;
 
 import com.restaurantmanager.network.ModNetwork;
 import com.restaurantmanager.network.packet.ServeCustomerPacket;
+import com.restaurantmanager.food.FoodRegistryScanner;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.Screen;
@@ -16,10 +17,28 @@ import java.util.List;
 
 public class TakeoutNegotiationScreen extends Screen {
     private static final ResourceLocation BACKGROUND = new ResourceLocation("restaurantmanager", "textures/gui/takeout_negotiation.png");
-    private static final int TEXTURE_WIDTH = 430;
-    private static final int TEXTURE_HEIGHT = 504;
+    private static final int TEXTURE_WIDTH = 1448;
+    private static final int TEXTURE_HEIGHT = 1086;
     private static final int ITEM_RENDER_SIZE = 16;
-    private static final int SUGGESTION_SLOT_TEXTURE_SIZE = 45;
+    private static final float SUGGESTION_ITEM_SCALE = 1.75F;
+    private static final int UNAVAILABLE_SLOT_X = 166;
+    private static final int UNAVAILABLE_SLOT_Y = 170;
+    private static final int UNAVAILABLE_SLOT_SIZE = 206;
+    private static final int SPEECH_X = 462;
+    private static final int SPEECH_Y = 184;
+    private static final int SPEECH_WIDTH = 828;
+    private static final int SUGGESTION_SLOT_X = 544;
+    private static final int SUGGESTION_SLOT_Y = 520;
+    private static final int SUGGESTION_SLOT_WIDTH = 436;
+    private static final int SUGGESTION_SLOT_HEIGHT = 334;
+    private static final int CHECK_BUTTON_X = 204;
+    private static final int CANCEL_BUTTON_X = 805;
+    private static final int BUTTON_Y = 943;
+    private static final int BUTTON_WIDTH = 522;
+    private static final int BUTTON_HEIGHT = 104;
+    private static final int BUTTON_LABEL_OFFSET_X = -18;
+    private static final int BUTTON_LABEL_OFFSET_Y = -32;
+    private static final int SUGGESTION_ITEM_OFFSET_X = -18;
     private static final int INVENTORY_GAP = 8;
     private static final int MIN_GUI_WIDTH = 260;
 
@@ -30,6 +49,7 @@ public class TakeoutNegotiationScreen extends Screen {
     private final int orderStartIndex;
     private final int requestIndex;
     private final String unavailableItemName;
+    private final ItemStack unavailableItem;
     private ItemStack suggestedItem = ItemStack.EMPTY;
     private int leftPos;
     private int topPos;
@@ -53,6 +73,7 @@ public class TakeoutNegotiationScreen extends Screen {
         this.orderStartIndex = orderStartIndex;
         this.requestIndex = requestIndex;
         this.unavailableItemName = unavailableItemName;
+        this.unavailableItem = FoodRegistryScanner.findFoodStack(unavailableItemName);
     }
 
     @Override
@@ -93,11 +114,11 @@ public class TakeoutNegotiationScreen extends Screen {
             this.inventoryY = this.topPos + this.guiHeight + INVENTORY_GAP + InventoryPanelRenderer.PANEL_MARGIN_Y;
         }
 
-        this.checkX = x(51);
-        this.cancelX = x(216);
-        this.buttonY = y(397);
-        this.buttonWidth = w(148);
-        this.buttonHeight = h(58);
+        this.checkX = x(CHECK_BUTTON_X);
+        this.cancelX = x(CANCEL_BUTTON_X);
+        this.buttonY = y(BUTTON_Y);
+        this.buttonWidth = w(BUTTON_WIDTH);
+        this.buttonHeight = h(BUTTON_HEIGHT);
     }
 
     @Override
@@ -106,8 +127,9 @@ public class TakeoutNegotiationScreen extends Screen {
         graphics.blit(BACKGROUND, leftPos, topPos, guiWidth, guiHeight,
                 0.0F, 0.0F, TEXTURE_WIDTH, TEXTURE_HEIGHT, TEXTURE_WIDTH, TEXTURE_HEIGHT);
 
+        renderUnavailableItem(graphics, mouseX, mouseY);
         drawWrapped(graphics, Component.literal(unavailableItemName + " is unavailable? I'll go with whatever you suggest."),
-                x(164), y(105), w(205), 0x3B2717, 4);
+                x(SPEECH_X), y(SPEECH_Y), w(SPEECH_WIDTH), 0x3B2717, 5);
         renderSuggestionSlot(graphics, mouseX, mouseY);
         renderInventoryPanel(graphics, mouseX, mouseY);
         renderButton(graphics, checkX, buttonY, buttonWidth, buttonHeight, "Suggest", mouseX, mouseY);
@@ -115,19 +137,49 @@ public class TakeoutNegotiationScreen extends Screen {
         renderTooltipForHoveredInventory(graphics, mouseX, mouseY);
     }
 
+    private void renderUnavailableItem(GuiGraphics graphics, int mouseX, int mouseY) {
+        int slotX = x(UNAVAILABLE_SLOT_X);
+        int slotY = y(UNAVAILABLE_SLOT_Y);
+        int slotWidth = w(UNAVAILABLE_SLOT_SIZE);
+        int slotHeight = h(UNAVAILABLE_SLOT_SIZE);
+        if (!unavailableItem.isEmpty()) {
+            renderCenteredItem(graphics, unavailableItem, slotX, slotY, slotWidth, slotHeight);
+            if (isInside(mouseX, mouseY, slotX, slotY, slotWidth, slotHeight)) {
+                graphics.renderTooltip(this.font, unavailableItem, mouseX, mouseY);
+            }
+        }
+    }
+
     private void renderSuggestionSlot(GuiGraphics graphics, int mouseX, int mouseY) {
-        int slotX = x(206);
-        int slotY = y(267);
-        int slotSize = Math.max(18, Math.min(w(SUGGESTION_SLOT_TEXTURE_SIZE), h(SUGGESTION_SLOT_TEXTURE_SIZE)));
-        int itemX = slotX + (slotSize - ITEM_RENDER_SIZE) / 2;
-        int itemY = slotY + (slotSize - ITEM_RENDER_SIZE) / 2;
+        int slotX = x(SUGGESTION_SLOT_X);
+        int slotY = y(SUGGESTION_SLOT_Y);
+        int slotWidth = w(SUGGESTION_SLOT_WIDTH);
+        int slotHeight = h(SUGGESTION_SLOT_HEIGHT);
         if (!suggestedItem.isEmpty()) {
-            graphics.renderItem(suggestedItem, itemX, itemY);
-            graphics.renderItemDecorations(this.font, suggestedItem, itemX, itemY);
-            if (isInside(mouseX, mouseY, slotX, slotY, slotSize, slotSize)) {
+            renderCenteredScaledItem(graphics, suggestedItem, slotX, slotY, slotWidth, slotHeight, SUGGESTION_ITEM_SCALE);
+            if (isInside(mouseX, mouseY, slotX, slotY, slotWidth, slotHeight)) {
                 graphics.renderTooltip(this.font, suggestedItem, mouseX, mouseY);
             }
         }
+    }
+
+    private void renderCenteredItem(GuiGraphics graphics, ItemStack stack, int x, int y, int width, int height) {
+        int itemX = x + (width - ITEM_RENDER_SIZE) / 2;
+        int itemY = y + (height - ITEM_RENDER_SIZE) / 2;
+        graphics.renderItem(stack, itemX, itemY);
+        graphics.renderItemDecorations(this.font, stack, itemX, itemY);
+    }
+
+    private void renderCenteredScaledItem(GuiGraphics graphics, ItemStack stack, int x, int y, int width, int height, float scale) {
+        int scaledSize = Math.round(ITEM_RENDER_SIZE * scale);
+        int itemX = x + (width - scaledSize) / 2 + w(SUGGESTION_ITEM_OFFSET_X);
+        int itemY = y + (height - scaledSize) / 2;
+        graphics.pose().pushPose();
+        graphics.pose().translate(itemX, itemY, 0.0F);
+        graphics.pose().scale(scale, scale, 1.0F);
+        graphics.renderItem(stack, 0, 0);
+        graphics.renderItemDecorations(this.font, stack, 0, 0);
+        graphics.pose().popPose();
     }
 
     private void renderInventoryPanel(GuiGraphics graphics, int mouseX, int mouseY) {
@@ -172,8 +224,11 @@ public class TakeoutNegotiationScreen extends Screen {
         if (isInside(mouseX, mouseY, x, y, width, height)) {
             graphics.fill(x + 5, y + 5, x + width - 5, y + height - 5, 0x22FFFFFF);
         }
-        graphics.drawCenteredString(this.font, Component.literal(label), x + width / 2 + 1, y + height / 2 - 3, 0x6B3F1D);
-        graphics.drawCenteredString(this.font, Component.literal(label), x + width / 2, y + height / 2 - 4, 0xFFF2D2);
+        int labelX = x + width / 2 + w(BUTTON_LABEL_OFFSET_X);
+        int labelY = y + (height - this.font.lineHeight) / 2;
+        labelY += h(BUTTON_LABEL_OFFSET_Y);
+        graphics.drawCenteredString(this.font, Component.literal(label), labelX + 1, labelY + 1, 0x6B3F1D);
+        graphics.drawCenteredString(this.font, Component.literal(label), labelX, labelY, 0xFFF2D2);
     }
 
     @Override
@@ -193,8 +248,8 @@ public class TakeoutNegotiationScreen extends Screen {
             }
         }
 
-        int suggestionSlotSize = Math.max(18, Math.min(w(SUGGESTION_SLOT_TEXTURE_SIZE), h(SUGGESTION_SLOT_TEXTURE_SIZE)));
-        if (isInside(mouseX, mouseY, x(206), y(267), suggestionSlotSize, suggestionSlotSize)) {
+        if (isInside(mouseX, mouseY, x(SUGGESTION_SLOT_X), y(SUGGESTION_SLOT_Y),
+                w(SUGGESTION_SLOT_WIDTH), h(SUGGESTION_SLOT_HEIGHT))) {
             suggestedItem = ItemStack.EMPTY;
             return true;
         }

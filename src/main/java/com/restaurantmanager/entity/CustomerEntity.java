@@ -232,6 +232,7 @@ public abstract class CustomerEntity extends PathfinderMob {
         seatTarget = reservedSeatPos == null ? null : getSeatTarget(reservedSeatPos);
         queueTarget = reservedQueuePos == null ? null : Vec3.atBottomCenterOf(reservedQueuePos);
         counterTarget = null;
+        restorePatienceFromSavedState();
         updateRequestName();
     }
 
@@ -379,7 +380,6 @@ public abstract class CustomerEntity extends PathfinderMob {
         }
 
         if (state == CustomerState.WAITING_IN_QUEUE) {
-            waitTimer++;
             if (serviceType == CustomerServiceType.TAKEOUT && canLeaveQueueForCounter()) {
                 releaseReservedQueueSpot();
                 state = CustomerState.MOVING_TO_COUNTER;
@@ -1110,6 +1110,34 @@ public abstract class CustomerEntity extends PathfinderMob {
         return Optional.empty();
     }
 
+    protected Optional<ItemStack> findUnexpectedFood(List<ItemStack> foods) {
+        List<FoodRequest> unmatchedRequests = new ArrayList<>();
+        for (int i = currentRequestIndex; i < requests.size(); i++) {
+            FoodRequest request = requests.get(i);
+            if (request != null) {
+                unmatchedRequests.add(request);
+            }
+        }
+
+        for (ItemStack food : foods) {
+            if (food.isEmpty()) {
+                continue;
+            }
+            boolean matched = false;
+            for (int i = 0; i < unmatchedRequests.size(); i++) {
+                if (food.getItem() == unmatchedRequests.get(i).getItem()) {
+                    unmatchedRequests.remove(i);
+                    matched = true;
+                    break;
+                }
+            }
+            if (!matched) {
+                return Optional.of(food);
+            }
+        }
+        return Optional.empty();
+    }
+
     protected void completeOrderFromContainer() {
         int totalReward = 0;
         int completedRequests = 0;
@@ -1177,8 +1205,8 @@ public abstract class CustomerEntity extends PathfinderMob {
     }
 
     protected void reactToWrongOrder(String message) {
-        waitTimer += TICKS_PER_MINUTE * 7;
-        setPatience(waitTimer >= IMPATIENT_TO_ANGRY_TICKS ? CustomerPatience.ANGRY : CustomerPatience.IMPATIENT);
+        waitTimer = Math.max(waitTimer + TICKS_PER_MINUTE * 7, NEUTRAL_TO_IMPATIENT_TICKS);
+        setPatience(getFoodWaitPatience());
         this.setCustomName(Component.literal(message));
         this.setCustomNameVisible(true);
     }
@@ -1307,7 +1335,9 @@ public abstract class CustomerEntity extends PathfinderMob {
         if (!(this.level() instanceof ServerLevel serverLevel) || reservedCounterPos == null) {
             return;
         }
-        RestaurantSeatingApi.markCounter(reservedCounterPos, serverLevel);
+        if (!RestaurantSeatingApi.isCounter(reservedCounterPos, serverLevel)) {
+            RestaurantSeatingApi.markCounter(reservedCounterPos, serverLevel);
+        }
         Vec3 baseTarget = getCounterTarget(reservedCounterPos, serverLevel)
                 .orElse(Vec3.atBottomCenterOf(reservedCounterPos.above()));
         counterTarget = offsetCounterTargetForSlot(baseTarget, reservedCounterPos, serverLevel);
@@ -1409,28 +1439,48 @@ public abstract class CustomerEntity extends PathfinderMob {
     }
 
     private void updateFoodWaitPatience() {
-        CustomerPatience nextPatience;
-        if (waitTimer >= IMPATIENT_TO_ANGRY_TICKS) {
-            nextPatience = CustomerPatience.ANGRY;
-        } else if (waitTimer >= NEUTRAL_TO_IMPATIENT_TICKS) {
-            nextPatience = CustomerPatience.IMPATIENT;
-        } else if (waitTimer >= HAPPY_TO_NEUTRAL_TICKS) {
-            nextPatience = CustomerPatience.NEUTRAL;
-        } else {
-            nextPatience = CustomerPatience.HAPPY;
-        }
-        setPatience(nextPatience);
+        setPatience(getFoodWaitPatience());
     }
 
     protected void updateNoSeatPatience() {
-        noSeatWaitTimer++;
-        if (noSeatWaitTimer >= NO_SEAT_TO_LEAVE_TICKS) {
+        waitTimer++;
+        noSeatWaitTimer = waitTimer;
+        if (waitTimer >= NO_SEAT_TO_LEAVE_TICKS) {
             leaveUnserved("Leaving: no available seats.");
-        } else if (noSeatWaitTimer >= NO_SEAT_TO_IMPATIENT_TICKS) {
+        } else if (waitTimer >= NO_SEAT_TO_IMPATIENT_TICKS) {
             setPatience(CustomerPatience.IMPATIENT);
         } else {
             setPatience(CustomerPatience.HAPPY);
         }
+    }
+
+    private void restorePatienceFromSavedState() {
+        if (state == CustomerState.REQUESTING
+                || state == CustomerState.WAITING_FOR_PLATE
+                || state == CustomerState.WAITING_FOR_PACKAGE) {
+            patience = getFoodWaitPatience();
+        } else if (state == CustomerState.WAITING_IN_QUEUE) {
+            noSeatWaitTimer = waitTimer;
+            patience = waitTimer >= NO_SEAT_TO_IMPATIENT_TICKS ? CustomerPatience.IMPATIENT : CustomerPatience.HAPPY;
+        } else if (state == CustomerState.LEAVING) {
+            patience = CustomerPatience.LEAVING;
+        } else {
+            patience = CustomerPatience.HAPPY;
+        }
+        this.entityData.set(SYNCED_PATIENCE, patience.name());
+    }
+
+    private CustomerPatience getFoodWaitPatience() {
+        if (waitTimer >= IMPATIENT_TO_ANGRY_TICKS) {
+            return CustomerPatience.ANGRY;
+        }
+        if (waitTimer >= NEUTRAL_TO_IMPATIENT_TICKS) {
+            return CustomerPatience.IMPATIENT;
+        }
+        if (waitTimer >= HAPPY_TO_NEUTRAL_TICKS) {
+            return CustomerPatience.NEUTRAL;
+        }
+        return CustomerPatience.HAPPY;
     }
 
     private int getServiceReputationReward() {
@@ -1722,7 +1772,6 @@ public abstract class CustomerEntity extends PathfinderMob {
 
         @Override
         public void start() {
-            customer.waitTimer = 0;
             customer.updateRequestName();
         }
 

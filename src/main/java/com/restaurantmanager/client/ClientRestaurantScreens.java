@@ -37,4 +37,8 @@ public class ClientRestaurantScreens {
     public static void openMenuItemEditor(InteractionHand hand, ItemStack stack) {
         Minecraft.getInstance().setScreen(new MenuItemEditorScreen(hand, stack));
     }
+
+    public static void openRestaurantMenuEditor(BlockPos signPos, String title, MenuCategory category, List<ResourceLocation> items) {
+        Minecraft.getInstance().setScreen(new MenuItemEditorScreen(signPos, title, category, items));
+    }
 }

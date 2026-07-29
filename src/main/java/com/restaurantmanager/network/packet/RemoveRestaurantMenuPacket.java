@@ -1,13 +1,17 @@
 package com.restaurantmanager.network.packet;
 
+import com.restaurantmanager.item.RestaurantMenuItem;
 import com.restaurantmanager.restaurant.MenuCategory;
 import com.restaurantmanager.restaurant.Restaurant;
+import com.restaurantmanager.restaurant.RestaurantMenu;
 import com.restaurantmanager.restaurant.RestaurantManager;
+import com.restaurantmanager.setup.ModItems;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.item.ItemStack;
 import net.minecraftforge.network.NetworkEvent;
 
 import java.util.function.Supplier;
@@ -47,9 +51,13 @@ public class RemoveRestaurantMenuPacket {
                 return;
             }
 
-            if (restaurant.removeMenu(packet.category)) {
+            RestaurantMenu removedMenu = restaurant.getMenuByCategory(packet.category).orElse(null);
+            if (removedMenu != null && restaurant.removeMenu(packet.category)) {
+                ItemStack returnedMenu = new ItemStack(ModItems.RESTAURANT_MENU.get());
+                RestaurantMenuItem.saveMenu(returnedMenu, removedMenu.getTitle(), removedMenu.getCategory(), removedMenu.getItems());
+                player.getInventory().placeItemBackInInventory(returnedMenu);
                 manager.setDirty();
-                player.sendSystemMessage(Component.literal(packet.category.getDisplayName() + " menu removed."));
+                player.sendSystemMessage(Component.literal(packet.category.getDisplayName() + " menu removed and returned."));
             }
         });
         context.setPacketHandled(true);

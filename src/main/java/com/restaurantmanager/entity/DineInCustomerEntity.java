@@ -19,7 +19,6 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
@@ -42,6 +41,15 @@ public class DineInCustomerEntity extends CustomerEntity {
         List<ItemStack> foods = PlateItem.getFoods(plateStack);
         if (foods.isEmpty()) {
             player.displayClientMessage(Component.literal("The plate is empty."), false);
+            return false;
+        }
+
+        Optional<ItemStack> unexpectedFood = findUnexpectedFood(foods);
+        if (unexpectedFood.isPresent()) {
+            String message = "Plate has an item I didn't order: " + unexpectedFood.get().getHoverName().getString();
+            player.displayClientMessage(Component.literal(message), false);
+            reactToWrongOrder(message);
+            wrongOrderCooldown = 20 * 4;
             return false;
         }
 
@@ -110,11 +118,21 @@ public class DineInCustomerEntity extends CustomerEntity {
             return;
         }
         plateScanTimer = 0;
-        findLinkedTablePlateWithCompleteOrder()
+        findLinkedTablePlateWithMeals()
                 .ifPresent(plate -> {
-                    Optional<FoodRequest> missingRequest = findMissingTakeoutRequest(plate.getMeals());
+                    List<ItemStack> meals = plate.getMeals();
+                    Optional<ItemStack> unexpectedFood = findUnexpectedFood(meals);
+                    if (unexpectedFood.isPresent()) {
+                        if (wrongOrderCooldown <= 0) {
+                            reactToWrongOrder("Plate has an item I didn't order: "
+                                    + unexpectedFood.get().getHoverName().getString());
+                            wrongOrderCooldown = 20 * 4;
+                        }
+                        return;
+                    }
+
+                    Optional<FoodRequest> missingRequest = findMissingTakeoutRequest(meals);
                     if (missingRequest.isPresent()) {
-                        reactToWrongOrder("Plate is missing: " + missingRequest.get().getDescription());
                         return;
                     }
                     servedPlatePos = plate.getBlockPos();
@@ -125,37 +143,23 @@ public class DineInCustomerEntity extends CustomerEntity {
                 });
     }
 
-    private Optional<PlateBlockEntity> findLinkedTablePlateWithCompleteOrder() {
-        return getPlateScanPositions().stream()
-                .map(pos -> this.level().getBlockEntity(pos))
-                .filter(PlateBlockEntity.class::isInstance)
-                .map(PlateBlockEntity.class::cast)
-                .filter(PlateBlockEntity::hasMeals)
-                .filter(plate -> findMissingTakeoutRequest(plate.getMeals()).isEmpty())
-                .findFirst();
-    }
-
     private Optional<PlateBlockEntity> findLinkedTablePlateWithMeals() {
-        return getPlateScanPositions().stream()
-                .map(pos -> this.level().getBlockEntity(pos))
-                .filter(PlateBlockEntity.class::isInstance)
-                .map(PlateBlockEntity.class::cast)
-                .filter(PlateBlockEntity::hasMeals)
-                .findFirst();
-    }
-
-    private List<BlockPos> getPlateScanPositions() {
-        List<BlockPos> positions = new ArrayList<>();
-        addScanPosition(positions, assignedTablePos);
-        addScanPosition(positions, assignedTablePos.above());
-        addScanPosition(positions, assignedTablePos.above(2));
-        return positions;
-    }
-
-    private void addScanPosition(List<BlockPos> positions, BlockPos pos) {
-        if (!positions.contains(pos)) {
-            positions.add(pos);
+        Optional<PlateBlockEntity> plate = getPlateWithMealsAt(assignedTablePos);
+        if (plate.isPresent()) {
+            return plate;
         }
+        plate = getPlateWithMealsAt(assignedTablePos.above());
+        if (plate.isPresent()) {
+            return plate;
+        }
+        return getPlateWithMealsAt(assignedTablePos.above(2));
+    }
+
+    private Optional<PlateBlockEntity> getPlateWithMealsAt(BlockPos pos) {
+        if (this.level().getBlockEntity(pos) instanceof PlateBlockEntity plate && plate.hasMeals()) {
+            return Optional.of(plate);
+        }
+        return Optional.empty();
     }
 
     @Override
