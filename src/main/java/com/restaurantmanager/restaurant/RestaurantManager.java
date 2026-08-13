@@ -65,6 +65,15 @@ public class RestaurantManager extends SavedData {
         });
     }
 
+    public void detachRestaurantAt(BlockPos signPos, ServerLevel level) {
+        findBySignPos(signPos).ifPresent(restaurant -> {
+            RestaurantSeatingApi.clearRestaurantSeatTables(restaurant, level);
+            restaurant.replaceSeatTableLinks(List.of());
+            restaurant.detachSign();
+            setDirty();
+        });
+    }
+
     public Optional<Restaurant> findById(UUID id) {
         return restaurants.stream().filter(r -> r.getId().equals(id)).findFirst();
     }
@@ -218,6 +227,21 @@ public class RestaurantManager extends SavedData {
         restaurant.addSeatTableLink(chairPos, tablePos);
         setDirty();
         return Optional.of(restaurant);
+    }
+
+    public boolean removeSeatTableLinkAt(BlockPos pos) {
+        boolean changed = false;
+        for (Restaurant restaurant : restaurants) {
+            int before = restaurant.getSeatTableLinks().size();
+            restaurant.removeSeatTableLinkAt(pos);
+            if (restaurant.getSeatTableLinks().size() != before) {
+                changed = true;
+            }
+        }
+        if (changed) {
+            setDirty();
+        }
+        return changed;
     }
 
     public boolean overlaps(AABB bounds) {

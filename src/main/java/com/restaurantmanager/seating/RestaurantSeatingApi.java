@@ -1,6 +1,8 @@
 package com.restaurantmanager.seating;
 
 import com.restaurantmanager.block.CashRegisterBlock;
+import com.restaurantmanager.restaurant.Restaurant;
+import com.restaurantmanager.restaurant.SeatTableLink;
 import com.restaurantmanager.setup.ModBlocks;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -41,6 +43,34 @@ public final class RestaurantSeatingApi {
     public static void unmarkTable(BlockPos pos, Level level) {
         if (level instanceof ServerLevel serverLevel && SeatingMarkSavedData.get(serverLevel).isTable(pos)) {
             SeatingMarkSavedData.get(serverLevel).unmark(pos);
+        }
+    }
+
+    public static void clearSeatTableLink(BlockPos chairPos, BlockPos tablePos, Level level) {
+        unmarkSeat(chairPos, level);
+        unmarkTable(tablePos, level);
+    }
+
+    public static void clearRestaurantSeatTables(Restaurant restaurant, Level level) {
+        if (!(level instanceof ServerLevel) || restaurant == null) {
+            return;
+        }
+        for (SeatTableLink link : List.copyOf(restaurant.getSeatTableLinks())) {
+            clearSeatTableLink(link.getChairPos(), link.getTablePos(), level);
+        }
+    }
+
+    public static void clearSeatOrTable(BlockPos pos, Level level) {
+        if (!(level instanceof ServerLevel serverLevel)) {
+            return;
+        }
+        SeatingMarkSavedData data = SeatingMarkSavedData.get(serverLevel);
+        if (data.isSeat(pos)) {
+            data.unlinkSeatFromTable(pos);
+            data.unmark(pos);
+        } else if (data.isTable(pos)) {
+            data.unlinkTable(pos);
+            data.unmark(pos);
         }
     }
 

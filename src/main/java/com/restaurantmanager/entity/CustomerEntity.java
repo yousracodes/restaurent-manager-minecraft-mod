@@ -862,8 +862,8 @@ public abstract class CustomerEntity extends PathfinderMob {
                 RestaurantManager.get(serverLevel).setDirty();
             }
         }
-        advanceRequest();
         player.displayClientMessage(Component.literal("Customer skipped that request."), false);
+        advanceUnavailableRequest();
     }
 
     public void startUnavailableNegotiation(Player player, int requestIndex) {
@@ -931,7 +931,10 @@ public abstract class CustomerEntity extends PathfinderMob {
             }
         }
         player.displayClientMessage(Component.literal("Customer skipped that unavailable item."), false);
-        updateRequestName();
+        leaveIfNoAvailableRequests("Leaving: everything requested was unavailable.");
+        if (state != CustomerState.LEAVING) {
+            updateRequestName();
+        }
     }
 
     public void loseRequest(Player player) {
@@ -973,6 +976,15 @@ public abstract class CustomerEntity extends PathfinderMob {
             }
         }
         return true;
+    }
+
+    protected boolean hasAvailableRemainingRequest() {
+        for (int i = currentRequestIndex; i < requests.size(); i++) {
+            if (requests.get(i) != null) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private void createRequests() {
@@ -1220,6 +1232,19 @@ public abstract class CustomerEntity extends PathfinderMob {
             state = CustomerState.SERVED;
             this.setCustomName(Component.literal("Order complete"));
             this.setCustomNameVisible(true);
+            return;
+        }
+        state = serviceType == CustomerServiceType.TAKEOUT ? CustomerState.WAITING_FOR_PACKAGE : CustomerState.WAITING_FOR_PLATE;
+        waitTimer = 0;
+        noSeatWaitTimer = 0;
+        patience = CustomerPatience.HAPPY;
+        updateRequestName();
+    }
+
+    protected void advanceUnavailableRequest() {
+        currentRequestIndex++;
+        leaveIfNoAvailableRequests("Leaving: everything requested was unavailable.");
+        if (state == CustomerState.LEAVING) {
             return;
         }
         state = serviceType == CustomerServiceType.TAKEOUT ? CustomerState.WAITING_FOR_PACKAGE : CustomerState.WAITING_FOR_PLATE;
@@ -1506,6 +1531,12 @@ public abstract class CustomerEntity extends PathfinderMob {
         if (this.patience != patience) {
             this.patience = patience;
             updateRequestName();
+        }
+    }
+
+    private void leaveIfNoAvailableRequests(String message) {
+        if (!hasAvailableRemainingRequest()) {
+            leaveUnserved(message);
         }
     }
 

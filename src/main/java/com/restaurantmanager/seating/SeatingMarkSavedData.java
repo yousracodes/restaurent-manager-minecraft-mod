@@ -97,6 +97,7 @@ public class SeatingMarkSavedData extends SavedData {
             occupiedQueueSpots.remove(pos);
             occupiedCounters.remove(pos);
             seatTables.remove(pos);
+            seatTables.entrySet().removeIf(entry -> entry.getValue().equals(pos));
             setDirty();
         }
     }
@@ -214,6 +215,18 @@ public class SeatingMarkSavedData extends SavedData {
         }
         seatTables.put(seatPos, tablePos.immutable());
         setDirty();
+    }
+
+    public void unlinkSeatFromTable(BlockPos seatPos) {
+        if (seatTables.remove(seatPos) != null) {
+            setDirty();
+        }
+    }
+
+    public void unlinkTable(BlockPos tablePos) {
+        if (seatTables.entrySet().removeIf(entry -> entry.getValue().equals(tablePos))) {
+            setDirty();
+        }
     }
 
     public boolean occupySeat(BlockPos pos, UUID entityId) {

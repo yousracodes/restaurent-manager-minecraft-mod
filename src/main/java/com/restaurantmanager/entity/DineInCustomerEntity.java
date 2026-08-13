@@ -3,6 +3,7 @@ package com.restaurantmanager.entity;
 import com.restaurantmanager.block.PlateBlockEntity;
 import com.restaurantmanager.food.FoodRequest;
 import com.restaurantmanager.item.PlateItem;
+import com.restaurantmanager.restaurant.RestaurantManager;
 import com.restaurantmanager.restaurant.SeatTableLink;
 import com.restaurantmanager.seating.MarkedPoint;
 import com.restaurantmanager.seating.RestaurantSeatingApi;
@@ -53,22 +54,16 @@ public class DineInCustomerEntity extends CustomerEntity {
             return false;
         }
 
-        int matchingIndex = findMatchingRemainingRequestIndex(foods);
-        if (matchingIndex < 0) {
-            Optional<FoodRequest> missingRequest = findMissingTakeoutRequest(foods);
-            String message;
-            if (missingRequest.isPresent()) {
-                message = "Plate is missing: " + missingRequest.get().getDescription();
-            } else {
-                message = "Plate does not contain a requested item.";
-            }
+        Optional<FoodRequest> missingRequest = findMissingTakeoutRequest(foods);
+        if (missingRequest.isPresent()) {
+            String message = "Plate is missing: " + missingRequest.get().getDescription();
             player.displayClientMessage(Component.literal(message), false);
             reactToWrongOrder(message);
             wrongOrderCooldown = 20 * 4;
             return false;
         }
 
-        completePlateRequest(player, plateStack, foods, matchingIndex);
+        completeHandedPlateOrder(player, plateStack);
         return true;
     }
 
@@ -86,30 +81,41 @@ public class DineInCustomerEntity extends CustomerEntity {
         return false;
     }
 
-    private void completePlateRequest(Player player, ItemStack plateStack, List<ItemStack> foods, int requestIndex) {
-        FoodRequest request = requests.get(requestIndex);
-        int reward = getScaledReward(request);
-        if (player instanceof ServerPlayer serverPlayer) {
-            serverPlayer.getInventory().placeItemBackInInventory(new ItemStack(net.minecraft.world.item.Items.EMERALD, reward));
-        }
-        player.displayClientMessage(Component.literal("Plate accepted. Here's your change."), false);
-
-        removeServedFoodFromPlate(plateStack, foods, request);
-        requests.set(requestIndex, null);
-        while (currentRequestIndex < requests.size() && requests.get(currentRequestIndex) == null) {
-            currentRequestIndex++;
+    private void completeHandedPlateOrder(Player player, ItemStack plateStack) {
+        int totalReward = 0;
+        int completedRequests = 0;
+        for (int i = currentRequestIndex; i < requests.size(); i++) {
+            FoodRequest request = requests.get(i);
+            if (request == null) {
+                continue;
+            }
+            totalReward += getScaledReward(request);
+            completedRequests++;
         }
 
+        if (player instanceof ServerPlayer serverPlayer && totalReward > 0) {
+            serverPlayer.getInventory().placeItemBackInInventory(new ItemStack(net.minecraft.world.item.Items.EMERALD, totalReward));
+        }
+        if (restaurant != null) {
+            for (int i = 0; i < completedRequests; i++) {
+                restaurant.addOrderCompleted();
+            }
+            restaurant.addMoneyEarned(totalReward);
+            if (this.level() instanceof ServerLevel serverLevel) {
+                RestaurantManager.get(serverLevel).setDirty();
+            }
+        }
+
+        currentRequestIndex = requests.size();
+        PlateItem.clearFood(plateStack);
+        prepareToLeave();
+        state = CustomerState.SERVED;
+        this.setCustomName(Component.literal("Order complete"));
+        this.setCustomNameVisible(true);
+        releaseReservedSeat();
         wrongOrderCooldown = 0;
         waitTimer = 0;
-        if (isOrderComplete()) {
-            state = CustomerState.SERVED;
-            this.setCustomName(Component.literal("Order complete"));
-            this.setCustomNameVisible(true);
-        } else {
-            state = CustomerState.WAITING_FOR_PLATE;
-            updateRequestName();
-        }
+        player.displayClientMessage(Component.literal("Plate accepted. Here's your change."), false);
     }
 
     @Override
