@@ -15,6 +15,14 @@ java {
     toolchain.languageVersion = JavaLanguageVersion.of(17)
 }
 
+// Server-side integration fixtures stay out of the published mod JAR.
+sourceSets {
+    gameTest {
+        compileClasspath += sourceSets.main.output + sourceSets.main.compileClasspath
+        runtimeClasspath += sourceSets.main.output + sourceSets.main.runtimeClasspath
+    }
+}
+
 minecraft {
     mappings channel: mapping_channel, version: mapping_version
 
@@ -44,7 +52,14 @@ minecraft {
         }
 
         gameTestServer {
+            workingDirectory project.file('build/gametest-run')
+            property 'forge.logging.console.level', 'info'
             property 'forge.enabledGameTestNamespaces', mod_id
+            mods {
+                "${mod_id}" {
+                    source sourceSets.gameTest
+                }
+            }
         }
 
         data {
@@ -105,4 +120,15 @@ tasks.named('jar', Jar).configure {
 
 tasks.withType(JavaCompile).configureEach {
     options.encoding = 'UTF-8'
+}
+
+// Exercise the waypoint boundaries that previously left customers standing beside seats.
+tasks.register('checkCustomerWaypoints', JavaExec) {
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.restaurantmanager.entity.CustomerWaypointTest'
+}
+
+tasks.named('check') {
+    dependsOn tasks.named('checkCustomerWaypoints')
 }

@@ -8,6 +8,9 @@ import com.restaurantmanager.restaurant.SeatTableLink;
 import com.restaurantmanager.seating.MarkedPoint;
 import com.restaurantmanager.seating.RestaurantSeatingApi;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import com.restaurantmanager.seating.SeatingMarkSavedData;
+import net.minecraft.world.level.pathfinder.WalkNodeEvaluator;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -24,6 +27,7 @@ import java.util.List;
 import java.util.Optional;
 
 public class DineInCustomerEntity extends CustomerEntity {
+    private Vec3 seatApproachTarget;
     public DineInCustomerEntity(EntityType<? extends PathfinderMob> type, Level world) {
         super(type, world);
     }
@@ -236,7 +240,63 @@ public class DineInCustomerEntity extends CustomerEntity {
         if (reservedSeatPos == null) {
             return seatTarget;
         }
-        return new Vec3(reservedSeatPos.getX() + 0.5, reservedSeatPos.getY() + 0.5, reservedSeatPos.getZ() + 0.5);
+        // Accept any accessible side of the chair, including a side reached
+        // before the originally selected waypoint. Do not require a nudge
+        // toward a fixed block center to trigger sitting.
+        if (!shouldStaySeated() && SeatAccess.canSitFrom(this.level(), this, reservedSeatPos)) {
+            return this.position();
+        }
+        if (seatApproachTarget != null && canStandAt(seatApproachTarget)
+                && !this.getNavigation().isStuck()) {
+            return seatApproachTarget;
+        }
+        seatApproachTarget = null;
+        double bestDistance = Double.MAX_VALUE;
+        for (Direction direction : Direction.Plane.HORIZONTAL) {
+            BlockPos pos = reservedSeatPos.relative(direction);
+            if (this.level() instanceof ServerLevel serverLevel) {
+                var marks = SeatingMarkSavedData.get(serverLevel);
+                if (marks.isSeat(pos) || marks.isTable(pos)) {
+                    continue;
+                }
+            }
+            double floor = WalkNodeEvaluator.getFloorLevel(this.level(), pos);
+            Vec3 candidate = new Vec3(pos.getX() + 0.5, floor, pos.getZ() + 0.5);
+            if (!canStandAt(candidate) || !SeatAccess.canSitFrom(this.level(), this, reservedSeatPos, candidate)) {
+                continue;
+            }
+            if (shouldStaySeated()) {
+                seatApproachTarget = candidate;
+                return candidate;
+            }
+            var path = this.getNavigation().createPath(BlockPos.containing(candidate), 0);
+            if (path != null && path.canReach()) {
+                double distance = 0.0;
+                Vec3 previous = this.position();
+                for (int i = 0; i < path.getNodeCount(); i++) {
+                    Vec3 next = Vec3.atBottomCenterOf(path.getNode(i).asBlockPos());
+                    distance += previous.distanceTo(next);
+                    previous = next;
+                }
+                if (distance < bestDistance) {
+                    bestDistance = distance;
+                    seatApproachTarget = candidate;
+                }
+            }
+        }
+        return seatApproachTarget;
+    }
+
+    @Override
+    protected boolean canSitFromHere(Vec3 approachTarget) {
+        return reservedSeatPos != null && seatTarget != null
+                && SeatAccess.canSitFrom(this.level(), this, reservedSeatPos);
+    }
+
+    private boolean canStandAt(Vec3 target) {
+        AABB bounds = this.getBoundingBox().move(target.subtract(this.position()));
+        return this.level().noCollision(this, bounds.deflate(0.001))
+                && this.level().getBlockCollisions(this, bounds.move(0.0, -0.05, 0.0)).iterator().hasNext();
     }
 
     @Override
@@ -252,6 +312,7 @@ public class DineInCustomerEntity extends CustomerEntity {
         if (reservedSeatPos != null && this.level() instanceof ServerLevel serverLevel) {
             RestaurantSeatingApi.releaseSeat(reservedSeatPos, this.getUUID(), serverLevel);
             reservedSeatPos = null;
+            seatApproachTarget = null;
             seatTarget = null;
             assignedTablePos = null;
         }
@@ -267,6 +328,9 @@ public class DineInCustomerEntity extends CustomerEntity {
         Vec3 standingTarget = reservedSeatPos != null
                 ? getSeatApproachTarget()
                 : new Vec3(seatTarget.x, seatTarget.y + 0.6, seatTarget.z);
+        if (standingTarget == null) {
+            return;
+        }
         this.getNavigation().stop();
         this.setDeltaMovement(Vec3.ZERO);
         this.setPos(standingTarget.x, standingTarget.y, standingTarget.z);

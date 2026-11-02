@@ -157,6 +157,13 @@ public class CustomerRenderer<T extends CustomerEntity> extends HumanoidMobRende
             this.leftArm.xRot = ARM_REST_ROTATION;
             this.rightArm.zRot = 4.0F * Mth.DEG_TO_RAD;
             this.leftArm.zRot = -4.0F * Mth.DEG_TO_RAD;
+
+            // PlayerModel copies these layers before our sitting pose is applied.
+            this.rightSleeve.copyFrom(this.rightArm);
+            this.leftSleeve.copyFrom(this.leftArm);
+            this.rightPants.copyFrom(this.rightLeg);
+            this.leftPants.copyFrom(this.leftLeg);
+            this.jacket.copyFrom(this.body);
         }
     }
 }

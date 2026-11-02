@@ -39,7 +39,6 @@ import net.minecraft.world.entity.ai.goal.Goal;
 import net.minecraft.world.entity.ai.goal.OpenDoorGoal;
 import net.minecraft.world.entity.ai.goal.RandomLookAroundGoal;
 import net.minecraft.world.entity.ai.goal.RandomStrollGoal;
-import net.minecraft.world.entity.ai.navigation.GroundPathNavigation;
 import net.minecraft.world.entity.ai.navigation.PathNavigation;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.InteractionHand;
@@ -140,7 +139,7 @@ public abstract class CustomerEntity extends PathfinderMob {
 
     @Override
     protected PathNavigation createNavigation(Level level) {
-        GroundPathNavigation navigation = new GroundPathNavigation(this, level);
+        CustomerNavigation navigation = new CustomerNavigation(this, level);
         navigation.setCanOpenDoors(true);
         return navigation;
     }
@@ -783,7 +782,8 @@ public abstract class CustomerEntity extends PathfinderMob {
             serverPlayer.getInventory().placeItemBackInInventory(new ItemStack(Items.EMERALD, reward));
         }
         player.displayClientMessage(Component.literal("Takeout accepted. Here's your change."), false);
-        TakeoutPackageItem.clearFood(packageStack);
+        TakeoutPackageItem.isolatePackage(player, packageStack);
+        packageStack.shrink(1);
         completeOrderFromContainer();
         releaseReservedCounter();
         return true;
@@ -1267,6 +1267,12 @@ public abstract class CustomerEntity extends PathfinderMob {
             return seatTarget;
         }
         return new Vec3(reservedSeatPos.getX() + 0.5, reservedSeatPos.getY() + 0.5, reservedSeatPos.getZ() + 0.5);
+    }
+
+    protected boolean canSitFromHere(Vec3 approachTarget) {
+        return seatTarget != null && (distanceToSqr(approachTarget) <= 0.36
+                || (getNavigation() instanceof CustomerNavigation navigation
+                && navigation.hasArrivedAt(approachTarget)));
     }
 
     protected boolean findAndReserveQueueSpot() {
@@ -1769,14 +1775,25 @@ public abstract class CustomerEntity extends PathfinderMob {
                 return;
             }
 
-            AABB bounds = customer.restaurant.getBounds();
             Vec3 approachTarget = customer.getSeatApproachTarget();
-            double targetX = approachTarget != null ? approachTarget.x : bounds.getCenter().x;
-            double targetY = approachTarget != null ? approachTarget.y : bounds.minY + 1.0;
-            double targetZ = approachTarget != null ? approachTarget.z : bounds.getCenter().z;
-            customer.getNavigation().moveTo(targetX, targetY, targetZ, 1.0);
-            boolean reachedSeat = customer.seatTarget != null
-                    && customer.distanceToSqr(targetX, targetY, targetZ) <= 2.0;
+            if (approachTarget == null) {
+                customer.releaseReservedSeat();
+                customer.seatSearchCooldown = RESERVATION_SEARCH_INTERVAL;
+                customer.updateNoSeatPatience();
+                return;
+            }
+            double targetX = approachTarget.x;
+            double targetY = approachTarget.y;
+            double targetZ = approachTarget.z;
+            // Check the completed path before moveTo can replace it with a new path.
+            boolean reachedSeat = customer.canSitFromHere(approachTarget);
+            if (!reachedSeat) {
+                if (customer.getNavigation() instanceof CustomerNavigation navigation) {
+                    navigation.moveToExact(approachTarget, 1.0);
+                } else {
+                    customer.getNavigation().moveTo(targetX, targetY, targetZ, 1.0);
+                }
+            }
             if (reachedSeat) {
                 customer.holdSeatPosition();
                 customer.getNavigation().stop();

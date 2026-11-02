@@ -61,7 +61,8 @@ public class TakeoutCustomerEntity extends CustomerEntity {
             serverPlayer.getInventory().placeItemBackInInventory(new ItemStack(Items.EMERALD, reward));
         }
         player.displayClientMessage(Component.literal("Takeout accepted. Here's your change."), false);
-        TakeoutPackageItem.clearFood(packageStack);
+        TakeoutPackageItem.isolatePackage(player, packageStack);
+        packageStack.shrink(1);
         completeOrderFromContainer();
         releaseReservedCounter();
         return true;

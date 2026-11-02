@@ -60,6 +60,7 @@ public class TakeoutPackageItem extends Item {
         }
 
         if (player instanceof ServerPlayer serverPlayer) {
+            isolatePackage(player, packageStack);
             NetworkHooks.openScreen(
                     serverPlayer,
                     new SimpleMenuProvider((id, inventory, openedPlayer) -> new TakeoutPackageMenu(id, inventory, hand),
@@ -68,6 +69,37 @@ public class TakeoutPackageItem extends Item {
             );
         }
         return InteractionResultHolder.consume(packageStack);
+    }
+
+    // Keep empty packages stackable, but edit only one physical package at a time.
+    public static void isolatePackage(Player player, ItemStack stack) {
+        if (stack.getCount() <= 1) {
+            return;
+        }
+        ItemStack remainder = stack.copyWithCount(stack.getCount() - 1);
+        clearFood(remainder);
+        stack.setCount(1);
+        // Do not use placeItemBackInInventory: it can merge empty packages
+        // straight back into the selected stack we just separated.
+        for (int i = 0; i < player.getInventory().items.size() && !remainder.isEmpty(); i++) {
+            ItemStack existing = player.getInventory().getItem(i);
+            if (existing == stack) {
+                continue;
+            }
+            if (existing.isEmpty()) {
+                player.getInventory().setItem(i, remainder.split(remainder.getMaxStackSize()));
+            } else if (ItemStack.isSameItemSameTags(existing, remainder)) {
+                int moved = Math.min(remainder.getCount(), existing.getMaxStackSize() - existing.getCount());
+                if (moved > 0) {
+                    existing.grow(moved);
+                    remainder.shrink(moved);
+                }
+            }
+        }
+        if (!remainder.isEmpty()) {
+            player.drop(remainder, false);
+        }
+        player.getInventory().setChanged();
     }
 
     @Override
