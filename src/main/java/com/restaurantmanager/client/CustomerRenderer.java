@@ -21,22 +21,22 @@ import org.joml.Matrix3f;
 import org.joml.Matrix4f;
 
 public class CustomerRenderer<T extends CustomerEntity> extends HumanoidMobRenderer<T, PlayerModel<T>> {
-    private static final ResourceLocation[] SKINS = {
-            customerSkin("customer_01.png"),
-            customerSkin("customer_02.png"),
-            customerSkin("customer_03.png"),
-            customerSkin("customer_04.png"),
-            customerSkin("customer_05.png"),
-            customerSkin("customer_06.png"),
-            customerSkin("customer_07.png"),
-            customerSkin("customer_08.png"),
-            customerSkin("customer_09.png"),
-            customerSkin("customer_10.png"),
-            customerSkin("customer_11.png"),
-            customerSkin("customer_12.png"),
-            customerSkin("customer_13.png"),
-            customerSkin("customer_14.png"),
-            customerSkin("customer_15.png")
+    private static final CustomerSkin[] SKINS = {
+            customerSkin("customer_01.png", true),
+            customerSkin("customer_02.png", true),
+            customerSkin("customer_03.png", false),
+            customerSkin("customer_04.png", true),
+            customerSkin("customer_05.png", true),
+            customerSkin("customer_06.png", false),
+            customerSkin("customer_07.png", false),
+            customerSkin("customer_08.png", true),
+            customerSkin("customer_09.png", true),
+            customerSkin("customer_10.png", true),
+            customerSkin("customer_11.png", false),
+            customerSkin("customer_12.png", true),
+            customerSkin("customer_13.png", true),
+            customerSkin("customer_14.png", true),
+            customerSkin("customer_15.png", true)
     };
     private static final float ICON_SIZE = 0.55F;
     private static final float LABEL_SCALE = 0.025F;
@@ -45,20 +45,32 @@ public class CustomerRenderer<T extends CustomerEntity> extends HumanoidMobRende
     private static final int LABEL_COLOR = 0xFFFFFF;
     private static final int LABEL_BACKGROUND = 0x66000000;
     private final EntityRenderDispatcher renderDispatcher;
+    private final PlayerModel<T> standardModel;
+    private final PlayerModel<T> slimModel;
 
     public CustomerRenderer(EntityRendererProvider.Context context) {
-        super(context, new SittingCustomerModel<>(context.bakeLayer(ModelLayers.PLAYER)), 0.5F);
+        this(context,
+                new SittingCustomerModel<>(context.bakeLayer(ModelLayers.PLAYER), false),
+                new SittingCustomerModel<>(context.bakeLayer(ModelLayers.PLAYER_SLIM), true));
+    }
+
+    private CustomerRenderer(EntityRendererProvider.Context context, PlayerModel<T> standardModel,
+                             PlayerModel<T> slimModel) {
+        super(context, standardModel, 0.5F);
         this.renderDispatcher = context.getEntityRenderDispatcher();
+        this.standardModel = standardModel;
+        this.slimModel = slimModel;
     }
 
     @Override
     public ResourceLocation getTextureLocation(T customer) {
-        return SKINS[Math.floorMod(customer.getUUID().hashCode(), SKINS.length)];
+        return skinFor(customer).texture();
     }
 
     @Override
     public void render(T customer, float entityYaw, float partialTick, PoseStack poseStack, MultiBufferSource buffer,
                        int packedLight) {
+        this.model = skinFor(customer).slim() ? slimModel : standardModel;
         super.render(customer, entityYaw, partialTick, poseStack, buffer, packedLight);
         renderPatienceIcon(customer, poseStack, buffer, packedLight);
     }
@@ -126,8 +138,18 @@ public class CustomerRenderer<T extends CustomerEntity> extends HumanoidMobRende
         );
     }
 
-    private static ResourceLocation customerSkin(String fileName) {
-        return new ResourceLocation("restaurantmanager", "textures/entity/customer_skins/" + fileName);
+    private static CustomerSkin skinFor(CustomerEntity customer) {
+        return SKINS[Math.floorMod(customer.getUUID().hashCode(), SKINS.length)];
+    }
+
+    private static CustomerSkin customerSkin(String fileName, boolean slim) {
+        return new CustomerSkin(
+                new ResourceLocation("restaurantmanager", "textures/entity/customer_skins/" + fileName),
+                slim
+        );
+    }
+
+    private record CustomerSkin(ResourceLocation texture, boolean slim) {
     }
 
     private static class SittingCustomerModel<T extends CustomerEntity> extends PlayerModel<T> {
@@ -136,8 +158,8 @@ public class CustomerRenderer<T extends CustomerEntity> extends HumanoidMobRende
         private static final float ARM_REST_ROTATION = -25.0F * Mth.DEG_TO_RAD;
         private static final float BODY_LEAN_ROTATION = 5.0F * Mth.DEG_TO_RAD;
 
-        SittingCustomerModel(ModelPart root) {
-            super(root, false);
+        SittingCustomerModel(ModelPart root, boolean slim) {
+            super(root, slim);
         }
 
         @Override
