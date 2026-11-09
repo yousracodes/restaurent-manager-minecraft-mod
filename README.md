@@ -62,6 +62,8 @@ The Chair/Table Link Tool is used in two clicks:
 1. Click a chair or seat position.
 2. Click the table that belongs to that chair.
 
+While holding the tool in either hand, nearby marked chairs have blue outlines (`#0072B2`) and tables have orange outlines (`#D55E00`). This colorblind-friendly pairing avoids relying on red versus green, and the outlines also follow each block's distinct shape. Aim at a linked chair or table to see its connection; after selecting a chair, aim at a table to preview the new link. Sneak-click a marker to remove it. The overlay disappears when you put the tool away.
+
 The mod only accepts the link if both points belong to the same restaurant. Dine-in customers prefer linked seats, reserve one, sit down, and then look for food on the linked table.
 
 ## Menus And Food Requests

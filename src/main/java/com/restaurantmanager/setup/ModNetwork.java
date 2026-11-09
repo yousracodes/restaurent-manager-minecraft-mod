@@ -16,11 +16,14 @@ import com.restaurantmanager.network.packet.ToggleRestaurantOpenPacket;
 import com.restaurantmanager.network.packet.UpdateRestaurantMenuPacket;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraftforge.network.NetworkRegistry;
+import net.minecraftforge.network.NetworkDirection;
+import com.restaurantmanager.network.packet.SeatingOutlinesPacket;
+import java.util.Optional;
 import net.minecraftforge.network.simple.SimpleChannel;
 import com.restaurantmanager.RestaurantManagerMod;
 
 public class ModNetwork {
-    private static final String PROTOCOL_VERSION = "1";
+    private static final String PROTOCOL_VERSION = "2";
     public static SimpleChannel CHANNEL;
     private static int packetId = 0;
 
@@ -133,6 +136,14 @@ public class ModNetwork {
                 RemoveRestaurantMenuPacket::encode,
                 RemoveRestaurantMenuPacket::decode,
                 RemoveRestaurantMenuPacket::handle
+        );
+        CHANNEL.registerMessage(
+                nextId(),
+                SeatingOutlinesPacket.class,
+                SeatingOutlinesPacket::encode,
+                SeatingOutlinesPacket::decode,
+                SeatingOutlinesPacket::handle,
+                Optional.of(NetworkDirection.PLAY_TO_CLIENT)
         );
     }
 }

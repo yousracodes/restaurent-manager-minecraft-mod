@@ -21,6 +21,15 @@ public class TableLinkToolItem extends Item {
     }
 
     @Override
+    public void appendHoverText(ItemStack stack, @javax.annotation.Nullable net.minecraft.world.level.Level level,
+                                java.util.List<Component> tooltip, net.minecraft.world.item.TooltipFlag flag) {
+        tooltip.add(Component.literal("Chairs: blue outlines").withStyle(style -> style.withColor(0x0072B2)));
+        tooltip.add(Component.literal("Tables: orange outlines").withStyle(style -> style.withColor(0xD55E00)));
+        tooltip.add(Component.literal("Click a chair, then a table. Sneak-click to unlink.")
+                .withStyle(net.minecraft.ChatFormatting.GRAY));
+    }
+
+    @Override
     public InteractionResult useOn(UseOnContext context) {
         if (!(context.getLevel() instanceof ServerLevel level) || context.getPlayer() == null) {
             return InteractionResult.SUCCESS;
