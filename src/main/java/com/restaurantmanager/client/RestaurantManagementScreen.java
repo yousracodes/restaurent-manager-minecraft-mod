@@ -4,30 +4,43 @@ import com.restaurantmanager.network.ModNetwork;
 import com.restaurantmanager.network.packet.RenameRestaurantPacket;
 import com.restaurantmanager.network.packet.ToggleRestaurantOpenPacket;
 import com.restaurantmanager.restaurant.MenuCategory;
+import com.restaurantmanager.setup.ModItems;
 import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
 
 public class RestaurantManagementScreen extends Screen {
-    private static final ResourceLocation BACKGROUND = new ResourceLocation("restaurantmanager", "textures/gui/restaurant_management.png");
-    private static final int TEXTURE_WIDTH = 2000;
-    private static final int TEXTURE_HEIGHT = 1960;
-    private static final int GUI_SOURCE_X = 249;
-    private static final int GUI_SOURCE_Y = 299;
-    private static final int GUI_SOURCE_WIDTH = 1502;
-    private static final int GUI_SOURCE_HEIGHT = 1392;
-    private static final int TITLE_CENTER_TEXTURE_X = 751;
-    private static final int TITLE_TEXTURE_Y = 72;
-    private static final int STATS_CENTER_TEXTURE_X = 751;
-    private static final int STATS_START_TEXTURE_Y = 428;
-    private static final int NAME_TEXT_COLOR = 0x5A2B13;
-    private static final int PLATE_TEXT_COLOR = 0x5A2B13;
-    private static final int LIGHT_OUTLINE_COLOR = 0xFFE8B4;
-    private static final int BUTTON_TEXT_COLOR = 0xFFF6D5;
-    private static final int BUTTON_OUTLINE_COLOR = 0x4B2412;
+    private static final int GUI_WIDTH = 320;
+    private static final int GUI_HEIGHT = 238;
+    private static final int MARGIN = 9;
+    private static final int CARD_GAP = 4;
+    private static final int CARD_HEIGHT = 29;
+    private static final int FIRST_CARD_Y = 69;
+
+    private static final int OUTLINE = 0xFF000000;
+    private static final int PANEL = 0xFFC6C6C6;
+    private static final int PANEL_LIGHT = 0xFFFFFFFF;
+    private static final int PANEL_SHADOW = 0xFF555555;
+    private static final int PANEL_DARK_SHADOW = 0xFF373737;
+    private static final int SLOT = 0xFF8B8B8B;
+    private static final int MUTED_TEXT = 0xFF5F5F5F;
+    private static final int VALUE_TEXT = 0xFF202020;
+    private static final int WOOD = 0xFF9A5B2E;
+    private static final int WOOD_LIGHT = 0xFFC17A3D;
+    private static final int WOOD_DARK = 0xFF4A2817;
+    private static final int OPEN_GREEN = 0xFF39753B;
+    private static final int CLOSED_RED = 0xFF8B3434;
+
+    private static final ResourceLocation REPUTATION_ICON = icon("heart");
+    private static final ResourceLocation EARNINGS_ICON = icon("coin");
+    private static final ResourceLocation COMPLETED_ICON = icon("completed");
+    private static final ResourceLocation FAILED_ICON = icon("failed");
 
     private final BlockPos signPos;
     private boolean open;
@@ -45,14 +58,6 @@ public class RestaurantManagementScreen extends Screen {
     private EditBox nameBox;
     private int leftPos;
     private int topPos;
-    private int guiWidth;
-    private int guiHeight;
-    private int menuX;
-    private int toggleX;
-    private int closeX;
-    private int buttonY;
-    private int buttonWidth;
-    private int buttonHeight;
 
     public RestaurantManagementScreen(BlockPos signPos, boolean open) {
         this(signPos, open, "Restaurant", "", 0, 1, 0, 0, 0, 0, 0, "", 0);
@@ -69,7 +74,7 @@ public class RestaurantManagementScreen extends Screen {
                                       int customersServed, int ordersCompleted, int ordersFailed,
                                       int customersLost, int moneyEarned, String menuTitle, int menuItemCount,
                                       String[] menuTitles, int[] menuItemCounts) {
-        super(Component.literal("Restaurant"));
+        super(Component.literal("Restaurant Management"));
         this.signPos = signPos;
         this.open = open;
         this.ownerName = ownerName == null || ownerName.isBlank() ? "Unknown" : ownerName;
@@ -82,82 +87,266 @@ public class RestaurantManagementScreen extends Screen {
         this.moneyEarned = moneyEarned;
         this.menuTitles = normalizeTitles(menuTitles);
         this.menuItemCounts = normalizeCounts(menuItemCounts);
+        if (menuTitles == null && this.menuTitles.length > 0 && menuTitle != null && !menuTitle.isBlank()) {
+            this.menuTitles[0] = menuTitle;
+        }
+        if (menuItemCounts == null && this.menuItemCounts.length > 0) {
+            this.menuItemCounts[0] = Math.max(0, menuItemCount);
+        }
         this.restaurantName = name == null || name.isBlank() ? "Restaurant" : name;
     }
 
     @Override
     protected void init() {
-        this.guiWidth = Math.min(500, this.width - 20);
-        this.guiHeight = this.guiWidth * GUI_SOURCE_HEIGHT / GUI_SOURCE_WIDTH;
-        if (this.guiHeight > this.height - 20) {
-            this.guiHeight = this.height - 20;
-            this.guiWidth = this.guiHeight * GUI_SOURCE_WIDTH / GUI_SOURCE_HEIGHT;
-        }
-        this.leftPos = (this.width - this.guiWidth) / 2;
-        this.topPos = (this.height - this.guiHeight) / 2;
+        this.leftPos = (this.width - GUI_WIDTH) / 2;
+        this.topPos = (this.height - GUI_HEIGHT) / 2;
 
-        this.nameBox = new EditBox(this.font, textureX(247), textureY(TITLE_TEXTURE_Y), textureWidth(1007), 18, Component.literal("Restaurant Name"));
+        this.nameBox = new EditBox(this.font, this.leftPos + 44, this.topPos + 23, 188, 21,
+                Component.literal("Restaurant Name"));
         this.nameBox.setValue(this.restaurantName);
         this.nameBox.setMaxLength(32);
-        this.nameBox.setBordered(false);
-        this.nameBox.setTextColor(NAME_TEXT_COLOR);
+        this.nameBox.setBordered(true);
+        this.nameBox.setTextColor(0xFFFFFF);
+        this.nameBox.setTextColorUneditable(0xA0A0A0);
+        this.nameBox.setFocused(false);
         this.addRenderableWidget(this.nameBox);
 
-        this.menuX = textureX(135);
-        this.toggleX = textureX(550);
-        this.closeX = textureX(966);
-        this.buttonY = textureY(1057);
-        this.buttonWidth = textureWidth(386);
-        this.buttonHeight = textureHeight(148);
+        int buttonY = this.topPos + 209;
+        int buttonWidth = 97;
+        this.addRenderableWidget(Button.builder(Component.literal("Menus"), button -> {
+                    saveName();
+                    this.minecraft.setScreen(new RestaurantMenuManagerScreen(this, this.signPos, this.menuTitles, this.menuItemCounts));
+                })
+                .bounds(this.leftPos + MARGIN, buttonY, buttonWidth, 20)
+                .build());
+
+        this.addRenderableWidget(Button.builder(toggleLabel(), button -> {
+                    saveName();
+                    this.open = !this.open;
+                    button.setMessage(toggleLabel());
+                    ModNetwork.CHANNEL.sendToServer(new ToggleRestaurantOpenPacket(this.signPos, this.open));
+                })
+                .bounds(this.leftPos + MARGIN + buttonWidth + CARD_GAP, buttonY, buttonWidth, 20)
+                .build());
+
+        this.addRenderableWidget(Button.builder(Component.literal("Done"), button -> this.onClose())
+                .bounds(this.leftPos + MARGIN + (buttonWidth + CARD_GAP) * 2, buttonY, 100, 20)
+                .build());
     }
 
     @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
         this.renderBackground(graphics);
-        graphics.blit(BACKGROUND, this.leftPos, this.topPos, this.guiWidth, this.guiHeight,
-                GUI_SOURCE_X, GUI_SOURCE_Y, GUI_SOURCE_WIDTH, GUI_SOURCE_HEIGHT, TEXTURE_WIDTH, TEXTURE_HEIGHT);
-
-        drawCenteredOutlined(graphics, this.nameBox.getValue().isBlank() ? "Restaurant" : this.nameBox.getValue(),
-                textureX(TITLE_CENTER_TEXTURE_X), textureY(TITLE_TEXTURE_Y), NAME_TEXT_COLOR, LIGHT_OUTLINE_COLOR);
+        drawRaisedPanel(graphics, this.leftPos, this.topPos, GUI_WIDTH, GUI_HEIGHT);
+        drawHeader(graphics);
+        drawSectionTitle(graphics, "OVERVIEW", this.topPos + 57);
         drawStats(graphics);
-        drawButtonLabel(graphics, this.menuX, this.buttonY, this.buttonWidth, this.buttonHeight, "Menus", mouseX, mouseY);
-        drawButtonLabel(graphics, this.toggleX, this.buttonY, this.buttonWidth, this.buttonHeight,
-                this.open ? "Close" : "Open", mouseX, mouseY);
-        drawButtonLabel(graphics, this.closeX, this.buttonY, this.buttonWidth, this.buttonHeight, "Close", mouseX, mouseY);
+        super.render(graphics, mouseX, mouseY, partialTick);
+    }
+
+    private void drawHeader(GuiGraphics graphics) {
+        int x = this.leftPos + MARGIN;
+        int y = this.topPos + MARGIN;
+        int width = GUI_WIDTH - MARGIN * 2;
+        drawWoodPanel(graphics, x, y, width, 40);
+
+        drawItemSlot(graphics, x + 6, y + 9);
+        graphics.renderItem(new ItemStack(ModItems.RESTAURANT_SIGN.get()), x + 9, y + 12);
+
+        graphics.drawString(this.font, Component.literal("RESTAURANT"), x + 35, y + 5, 0xFFE7C184, true);
+        drawStatusBadge(graphics, x + width - 72, y + 14, 66, 21);
+    }
+
+    private void drawSectionTitle(GuiGraphics graphics, String title, int y) {
+        int centerX = this.leftPos + GUI_WIDTH / 2;
+        int titleWidth = this.font.width(title);
+        int left = this.leftPos + MARGIN;
+        int right = this.leftPos + GUI_WIDTH - MARGIN;
+        int lineY = y + 4;
+        graphics.fill(left, lineY, centerX - titleWidth / 2 - 7, lineY + 1, PANEL_SHADOW);
+        graphics.fill(centerX + titleWidth / 2 + 7, lineY, right, lineY + 1, PANEL_SHADOW);
+        graphics.drawCenteredString(this.font, Component.literal(title), centerX, y, MUTED_TEXT);
     }
 
     private void drawStats(GuiGraphics graphics) {
-        int centerX = textureX(STATS_CENTER_TEXTURE_X);
-        int y = textureY(STATS_START_TEXTURE_Y);
-        drawCenteredOutlined(graphics, "Owner: " + ownerName, centerX, y, PLATE_TEXT_COLOR, LIGHT_OUTLINE_COLOR);
-        drawCenteredOutlined(graphics, "Stars: " + starRating + "/5   Rep: " + reputation, centerX, y + 12, PLATE_TEXT_COLOR, LIGHT_OUTLINE_COLOR);
-        drawCenteredOutlined(graphics, "Served: " + customersServed + "   Earned: " + moneyEarned, centerX, y + 24, PLATE_TEXT_COLOR, LIGHT_OUTLINE_COLOR);
-        drawCenteredOutlined(graphics, "Orders: " + ordersCompleted + " OK / " + ordersFailed + " Failed", centerX, y + 36, PLATE_TEXT_COLOR, LIGHT_OUTLINE_COLOR);
-        drawCenteredOutlined(graphics, "Lost: " + customersLost, centerX, y + 48, PLATE_TEXT_COLOR, LIGHT_OUTLINE_COLOR);
+        int contentX = this.leftPos + MARGIN;
+        int contentWidth = GUI_WIDTH - MARGIN * 2;
+        int halfWidth = (contentWidth - CARD_GAP) / 2;
+        int row1 = this.topPos + FIRST_CARD_Y;
+        int row2 = row1 + CARD_HEIGHT + CARD_GAP;
+        int row3 = row2 + CARD_HEIGHT + CARD_GAP;
+        int row4 = row3 + CARD_HEIGHT + CARD_GAP;
+
+        drawStatCard(graphics, contentX, row1, halfWidth, CARD_HEIGHT,
+                new ItemStack(ModItems.RESTAURANT_MENU.get()), "Menus", menuSummary());
+        drawStatCard(graphics, contentX + halfWidth + CARD_GAP, row1, halfWidth, CARD_HEIGHT,
+                new ItemStack(Items.PLAYER_HEAD), "Owner", this.ownerName);
+
+        drawStatCard(graphics, contentX, row2, halfWidth, CARD_HEIGHT,
+                new ItemStack(Items.NETHER_STAR), "Star rating", this.starRating + " / 5");
+        drawReputationCard(graphics, contentX + halfWidth + CARD_GAP, row2, halfWidth, CARD_HEIGHT);
+
+        drawStatCard(graphics, contentX, row3, halfWidth, CARD_HEIGHT,
+                new ItemStack(Items.NAME_TAG), "Guests served", Integer.toString(this.customersServed));
+        drawIconStatCard(graphics, contentX + halfWidth + CARD_GAP, row3, halfWidth, CARD_HEIGHT,
+                EARNINGS_ICON, "Money earned", Integer.toString(this.moneyEarned));
+
+        int thirdWidth = (contentWidth - CARD_GAP * 2) / 3;
+        drawCompactIconStatCard(graphics, contentX, row4, thirdWidth, CARD_HEIGHT,
+                COMPLETED_ICON, "Completed", this.ordersCompleted);
+        drawCompactIconStatCard(graphics, contentX + thirdWidth + CARD_GAP, row4, thirdWidth, CARD_HEIGHT,
+                FAILED_ICON, "Failed", this.ordersFailed);
+        drawCompactStatCard(graphics, contentX + (thirdWidth + CARD_GAP) * 2, row4,
+                contentWidth - thirdWidth * 2 - CARD_GAP * 2, CARD_HEIGHT,
+                new ItemStack(Items.BARRIER), "Lost", this.customersLost);
     }
 
-    @Override
-    public boolean mouseClicked(double mouseX, double mouseY, int button) {
-        if (button == 1 && isInside(mouseX, mouseY, textureX(229), textureY(12), textureWidth(1043), textureHeight(191))) {
-            this.nameBox.setFocused(true);
-            return true;
+    private void drawStatCard(GuiGraphics graphics, int x, int y, int width, int height,
+                              ItemStack icon, String label, String value) {
+        drawStatPanel(graphics, x, y, width, height);
+        drawItemSlot(graphics, x + 4, y + 4);
+        graphics.renderItem(icon, x + 7, y + 7);
+        graphics.drawString(this.font, fitText(label, width - 35), x + 32, y + 4, MUTED_TEXT, false);
+        graphics.drawString(this.font, fitText(value, width - 35), x + 32, y + 16, VALUE_TEXT, false);
+    }
+
+    private void drawIconStatCard(GuiGraphics graphics, int x, int y, int width, int height,
+                                  ResourceLocation icon, String label, String value) {
+        drawStatPanel(graphics, x, y, width, height);
+        drawItemSlot(graphics, x + 4, y + 4);
+        drawIcon(graphics, icon, x + 7, y + 7);
+        graphics.drawString(this.font, fitText(label, width - 35), x + 32, y + 4, MUTED_TEXT, false);
+        graphics.drawString(this.font, fitText(value, width - 35), x + 32, y + 16, VALUE_TEXT, false);
+    }
+
+    private void drawReputationCard(GuiGraphics graphics, int x, int y, int width, int height) {
+        drawStatPanel(graphics, x, y, width, height);
+        drawItemSlot(graphics, x + 4, y + 4);
+        drawIcon(graphics, REPUTATION_ICON, x + 7, y + 7);
+        graphics.drawString(this.font, fitText("Reputation: " + this.reputation, width - 38),
+                x + 32, y + 4, MUTED_TEXT, false);
+
+        int barX = x + 32;
+        int barY = y + 17;
+        int barWidth = width - 39;
+        graphics.fill(barX, barY, barX + barWidth, barY + 7, OUTLINE);
+        graphics.fill(barX + 1, barY + 1, barX + barWidth - 1, barY + 6, PANEL_DARK_SHADOW);
+        int progressWidth = (int) ((barWidth - 2) * Math.min(1.0D, Math.max(0, this.reputation) / 1000.0D));
+        if (progressWidth > 0) {
+            graphics.fill(barX + 1, barY + 1, barX + 1 + progressWidth, barY + 6, 0xFF55AA22);
+            graphics.fill(barX + 1, barY + 1, barX + 1 + progressWidth, barY + 3, 0xFF80D43A);
         }
-        if (isInside(mouseX, mouseY, this.menuX, this.buttonY, this.buttonWidth, this.buttonHeight)) {
-            saveName();
-            this.minecraft.setScreen(new RestaurantMenuManagerScreen(this, this.signPos, this.menuTitles, this.menuItemCounts));
-            return true;
+    }
+
+    private void drawCompactIconStatCard(GuiGraphics graphics, int x, int y, int width, int height,
+                                         ResourceLocation icon, String label, int value) {
+        drawStatPanel(graphics, x, y, width, height);
+        drawItemSlot(graphics, x + 4, y + 4);
+        drawIcon(graphics, icon, x + 7, y + 7);
+        graphics.drawString(this.font, fitText(label, width - 34), x + 32, y + 4, MUTED_TEXT, false);
+        graphics.drawString(this.font, Integer.toString(value), x + 32, y + 16, VALUE_TEXT, false);
+    }
+
+    private void drawCompactStatCard(GuiGraphics graphics, int x, int y, int width, int height,
+                                     ItemStack icon, String label, int value) {
+        drawStatPanel(graphics, x, y, width, height);
+        drawItemSlot(graphics, x + 4, y + 4);
+        graphics.renderItem(icon, x + 7, y + 7);
+        graphics.drawString(this.font, fitText(label, width - 34), x + 32, y + 4, MUTED_TEXT, false);
+        graphics.drawString(this.font, Integer.toString(value), x + 32, y + 16, VALUE_TEXT, false);
+    }
+
+    private void drawIcon(GuiGraphics graphics, ResourceLocation icon, int x, int y) {
+        graphics.blit(icon, x, y, 0, 0, 16, 16, 16, 16);
+    }
+
+    private void drawRaisedPanel(GuiGraphics graphics, int x, int y, int width, int height) {
+        graphics.fill(x + 3, y + 4, x + width + 3, y + height + 4, 0x88000000);
+        graphics.fill(x, y, x + width, y + height, OUTLINE);
+        graphics.fill(x + 1, y + 1, x + width - 1, y + height - 1, PANEL);
+        graphics.fill(x + 1, y + 1, x + width - 2, y + 3, PANEL_LIGHT);
+        graphics.fill(x + 1, y + 1, x + 3, y + height - 2, PANEL_LIGHT);
+        graphics.fill(x + 2, y + height - 3, x + width - 1, y + height - 1, PANEL_SHADOW);
+        graphics.fill(x + width - 3, y + 2, x + width - 1, y + height - 1, PANEL_SHADOW);
+    }
+
+    private void drawStatPanel(GuiGraphics graphics, int x, int y, int width, int height) {
+        graphics.fill(x, y, x + width, y + height, PANEL_SHADOW);
+        graphics.fill(x + 1, y + 1, x + width - 1, y + height - 1, PANEL);
+        graphics.fill(x + 1, y + 1, x + width - 2, y + 2, PANEL_LIGHT);
+        graphics.fill(x + 1, y + 1, x + 2, y + height - 2, PANEL_LIGHT);
+        graphics.fill(x + 2, y + height - 2, x + width - 1, y + height - 1, PANEL_DARK_SHADOW);
+        graphics.fill(x + width - 2, y + 2, x + width - 1, y + height - 1, PANEL_DARK_SHADOW);
+    }
+
+    private void drawItemSlot(GuiGraphics graphics, int x, int y) {
+        graphics.fill(x, y, x + 22, y + 22, PANEL_SHADOW);
+        graphics.fill(x + 2, y + 2, x + 22, y + 22, PANEL_LIGHT);
+        graphics.fill(x + 2, y + 2, x + 20, y + 20, SLOT);
+    }
+
+    private void drawWoodPanel(GuiGraphics graphics, int x, int y, int width, int height) {
+        graphics.fill(x, y, x + width, y + height, WOOD_DARK);
+        graphics.fill(x + 2, y + 2, x + width - 2, y + height - 2, WOOD);
+        graphics.fill(x + 2, y + 2, x + width - 2, y + 4, WOOD_LIGHT);
+        graphics.fill(x + 2, y + height - 4, x + width - 2, y + height - 2, 0xFF6F3C20);
+        graphics.fill(x + 4, y + 19, x + width - 4, y + 20, 0x33722E12);
+        drawNail(graphics, x + 4, y + 4);
+        drawNail(graphics, x + width - 7, y + 4);
+        drawNail(graphics, x + 4, y + height - 7);
+        drawNail(graphics, x + width - 7, y + height - 7);
+    }
+
+    private void drawStatusBadge(GuiGraphics graphics, int x, int y, int width, int height) {
+        int color = this.open ? OPEN_GREEN : CLOSED_RED;
+        graphics.fill(x, y, x + width, y + height, WOOD_DARK);
+        graphics.fill(x + 2, y + 2, x + width - 2, y + height - 2, color);
+        graphics.fill(x + 3, y + 3, x + width - 3, y + 5, brighten(color, 28));
+        graphics.fill(x + 6, y + 8, x + 10, y + 12, this.open ? 0xFF83D275 : 0xFFE06A5E);
+        graphics.drawCenteredString(this.font, Component.literal(this.open ? "OPEN" : "CLOSED"),
+                x + width / 2 + 4, y + 6, 0xFFFFFFFF);
+    }
+
+    private void drawNail(GuiGraphics graphics, int x, int y) {
+        graphics.fill(x, y, x + 3, y + 3, 0xFF2E211A);
+        graphics.fill(x, y, x + 2, y + 2, 0xFFB9A684);
+    }
+
+    private int brighten(int color, int amount) {
+        int red = Math.min(255, ((color >> 16) & 255) + amount);
+        int green = Math.min(255, ((color >> 8) & 255) + amount);
+        int blue = Math.min(255, (color & 255) + amount);
+        return 0xFF000000 | (red << 16) | (green << 8) | blue;
+    }
+
+    private static ResourceLocation icon(String name) {
+        return new ResourceLocation("restaurantmanager", "textures/gui/icons/" + name + ".png");
+    }
+
+    private Component toggleLabel() {
+        return Component.literal(this.open ? "Close" : "Open");
+    }
+
+    private String menuSummary() {
+        int menuCount = 0;
+        int itemCount = 0;
+        for (int i = 0; i < this.menuTitles.length; i++) {
+            if (!this.menuTitles[i].isBlank() || this.menuItemCounts[i] > 0) {
+                menuCount++;
+            }
+            itemCount += this.menuItemCounts[i];
         }
-        if (isInside(mouseX, mouseY, this.toggleX, this.buttonY, this.buttonWidth, this.buttonHeight)) {
-            saveName();
-            this.open = !this.open;
-            ModNetwork.CHANNEL.sendToServer(new ToggleRestaurantOpenPacket(this.signPos, this.open));
-            return true;
+        String menus = menuCount == 1 ? " menu" : " menus";
+        String items = itemCount == 1 ? " item" : " items";
+        return menuCount + menus + " / " + itemCount + items;
+    }
+
+    private String fitText(String text, int maxWidth) {
+        if (this.font.width(text) <= maxWidth) {
+            return text;
         }
-        if (isInside(mouseX, mouseY, this.closeX, this.buttonY, this.buttonWidth, this.buttonHeight)) {
-            this.onClose();
-            return true;
-        }
-        return super.mouseClicked(mouseX, mouseY, button);
+        String suffix = "...";
+        return this.font.plainSubstrByWidth(text, Math.max(0, maxWidth - this.font.width(suffix))) + suffix;
     }
 
     @Override
@@ -167,25 +356,11 @@ public class RestaurantManagementScreen extends Screen {
     }
 
     private void saveName() {
-        this.restaurantName = this.nameBox.getValue();
-        ModNetwork.CHANNEL.sendToServer(new RenameRestaurantPacket(this.signPos, this.restaurantName));
-    }
-
-    private void drawButtonLabel(GuiGraphics graphics, int x, int y, int width, int height, String label, int mouseX, int mouseY) {
-        if (isInside(mouseX, mouseY, x, y, width, height)) {
-            graphics.fill(x + 6, y + 6, x + width - 6, y + height - 6, 0x22FFFFFF);
+        if (this.nameBox == null) {
+            return;
         }
-        drawCenteredOutlined(graphics, label, x + width / 2, y + height / 2 - 4, BUTTON_TEXT_COLOR, BUTTON_OUTLINE_COLOR);
-    }
-
-    private void drawCenteredOutlined(GuiGraphics graphics, String text, int centerX, int y, int textColor, int outlineColor) {
-        Component component = Component.literal(text);
-        graphics.drawCenteredString(this.font, component, centerX - 1, y, outlineColor);
-        graphics.drawCenteredString(this.font, component, centerX + 1, y, outlineColor);
-        graphics.drawCenteredString(this.font, component, centerX, y - 1, outlineColor);
-        graphics.drawCenteredString(this.font, component, centerX, y + 1, outlineColor);
-        graphics.drawCenteredString(this.font, component, centerX + 1, y + 1, outlineColor);
-        graphics.drawCenteredString(this.font, component, centerX, y, textColor);
+        this.restaurantName = this.nameBox.getValue().isBlank() ? "Restaurant" : this.nameBox.getValue();
+        ModNetwork.CHANNEL.sendToServer(new RenameRestaurantPacket(this.signPos, this.restaurantName));
     }
 
     public BlockPos getSignPos() {
@@ -219,29 +394,9 @@ public class RestaurantManagementScreen extends Screen {
     private static int[] normalizeCounts(int[] counts) {
         int[] normalized = new int[MenuCategory.values().length];
         for (int i = 0; i < normalized.length; i++) {
-            normalized[i] = counts != null && i < counts.length ? counts[i] : 0;
+            normalized[i] = counts != null && i < counts.length ? Math.max(0, counts[i]) : 0;
         }
         return normalized;
-    }
-
-    private int textureX(int textureX) {
-        return this.leftPos + textureX * this.guiWidth / GUI_SOURCE_WIDTH;
-    }
-
-    private int textureY(int textureY) {
-        return this.topPos + textureY * this.guiHeight / GUI_SOURCE_HEIGHT;
-    }
-
-    private int textureWidth(int textureWidth) {
-        return textureWidth * this.guiWidth / GUI_SOURCE_WIDTH;
-    }
-
-    private int textureHeight(int textureHeight) {
-        return textureHeight * this.guiHeight / GUI_SOURCE_HEIGHT;
-    }
-
-    private boolean isInside(double mouseX, double mouseY, int x, int y, int width, int height) {
-        return mouseX >= x && mouseX < x + width && mouseY >= y && mouseY < y + height;
     }
 
     @Override

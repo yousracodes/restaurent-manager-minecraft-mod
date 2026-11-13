@@ -10,3 +10,7 @@ out/
 .idea/
 *.iml
 .vscode/
+.tools/
+.venv-hf/
+tools/
+tmp/
