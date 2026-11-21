@@ -44,10 +44,10 @@ public class FoodSelectionScreen extends Screen {
     @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
         this.renderBackground(graphics);
-        graphics.fill(this.leftPos, this.topPos, this.leftPos + this.panelWidth, this.topPos + this.panelHeight, 0xFF2E2E2E);
-        graphics.fill(this.leftPos + 3, this.topPos + 3, this.leftPos + this.panelWidth - 3, this.topPos + this.panelHeight - 3, 0xFFC7C5BF);
-        graphics.fill(this.leftPos + 8, this.topPos + 8, this.leftPos + this.panelWidth - 8, this.topPos + this.panelHeight - 8, 0xFFB6B3AB);
-        graphics.drawCenteredString(this.font, Component.literal("Select a food item"), this.leftPos + this.panelWidth / 2, this.topPos + 14, 0x2B2118);
+        CodeGuiTheme.drawScreenPanel(graphics, this.leftPos, this.topPos, this.panelWidth, this.panelHeight);
+        CodeGuiTheme.drawWoodHeader(graphics, this.leftPos + 10, this.topPos + 8, this.panelWidth - 20, 20);
+        drawCenteredCrispString(graphics, "Select a food item", this.leftPos + this.panelWidth / 2,
+                this.topPos + 14, CodeGuiTheme.LIGHT_TEXT);
 
         Player player = Minecraft.getInstance().player;
         ItemStack hovered = ItemStack.EMPTY;
@@ -103,17 +103,14 @@ public class FoodSelectionScreen extends Screen {
     }
 
     private void drawButton(GuiGraphics graphics, int x, int y, int width, int height, String label, int color, int mouseX, int mouseY) {
-        int fill = isInside(mouseX, mouseY, x, y, width, height) ? brighten(color) : color;
-        graphics.fill(x, y, x + width, y + height, 0xFF1F1F1F);
-        graphics.fill(x + 2, y + 2, x + width - 2, y + height - 2, fill);
-        graphics.drawCenteredString(this.font, Component.literal(label), x + width / 2, y + 6, 0xFFFFFF);
+        CodeGuiTheme.drawButton(graphics, x, y, width, height,
+                isInside(mouseX, mouseY, x, y, width, height), false);
+        drawCenteredCrispString(graphics, label, x + width / 2,
+                y + (height - this.font.lineHeight) / 2, CodeGuiTheme.LIGHT_TEXT);
     }
 
-    private int brighten(int color) {
-        int r = Math.min(255, ((color >> 16) & 255) + 28);
-        int g = Math.min(255, ((color >> 8) & 255) + 28);
-        int b = Math.min(255, (color & 255) + 28);
-        return 0xFF000000 | (r << 16) | (g << 8) | b;
+    private void drawCenteredCrispString(GuiGraphics graphics, String text, int centerX, int y, int color) {
+        graphics.drawString(this.font, Component.literal(text), centerX - this.font.width(text) / 2, y, color, false);
     }
 
     private boolean isInside(double mouseX, double mouseY, int x, int y, int width, int height) {

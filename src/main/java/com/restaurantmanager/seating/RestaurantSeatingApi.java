@@ -2,6 +2,7 @@ package com.restaurantmanager.seating;
 
 import com.restaurantmanager.block.CashRegisterBlock;
 import com.restaurantmanager.restaurant.Restaurant;
+import com.restaurantmanager.restaurant.RestaurantManager;
 import com.restaurantmanager.restaurant.SeatTableLink;
 import com.restaurantmanager.setup.ModBlocks;
 import net.minecraft.core.BlockPos;
@@ -11,8 +12,11 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.Vec3;
 
+import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 
 public final class RestaurantSeatingApi {
@@ -72,6 +76,52 @@ public final class RestaurantSeatingApi {
             data.unlinkTable(pos);
             data.unmark(pos);
         }
+    }
+
+    /**
+     * Removes the complete connected chair/table group containing {@code pos}.
+     * A table can be shared by several chairs, so removing either endpoint must
+     * also remove every link and marker that depends on that table.
+     */
+    public static boolean clearSeatTableGroupAt(BlockPos pos, Level level) {
+        if (!(level instanceof ServerLevel serverLevel)) {
+            return false;
+        }
+
+        RestaurantManager manager = RestaurantManager.get(serverLevel);
+        List<SeatTableLink> links = new ArrayList<>();
+        for (Restaurant restaurant : manager.getRestaurants()) {
+            links.addAll(restaurant.getSeatTableLinks());
+        }
+
+        Set<BlockPos> group = new LinkedHashSet<>();
+        group.add(pos.immutable());
+        boolean foundLink = false;
+        boolean expanded;
+        do {
+            expanded = false;
+            for (SeatTableLink link : links) {
+                if (group.contains(link.getChairPos()) || group.contains(link.getTablePos())) {
+                    foundLink = true;
+                    expanded |= group.add(link.getChairPos());
+                    expanded |= group.add(link.getTablePos());
+                }
+            }
+        } while (expanded);
+
+        SeatingMarkSavedData data = SeatingMarkSavedData.get(serverLevel);
+        boolean foundMarker = group.stream().anyMatch(groupPos -> data.isSeat(groupPos) || data.isTable(groupPos));
+        if (!foundLink && !foundMarker) {
+            return false;
+        }
+
+        for (BlockPos groupPos : group) {
+            manager.removeSeatTableLinkAt(groupPos);
+        }
+        for (BlockPos groupPos : group) {
+            clearSeatOrTable(groupPos, serverLevel);
+        }
+        return true;
     }
 
     public static void markQueueSpot(BlockPos pos, Level level) {

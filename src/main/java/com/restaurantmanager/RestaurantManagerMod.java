@@ -12,6 +12,7 @@ import com.restaurantmanager.setup.ModEntities;
 import com.restaurantmanager.setup.ModItems;
 import com.restaurantmanager.setup.ModMenus;
 import com.restaurantmanager.seating.SeatingDebugEvents;
+import com.restaurantmanager.seating.SeatingBlockEvents;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.eventbus.api.IEventBus;
 import net.minecraftforge.event.entity.EntityAttributeCreationEvent;
@@ -41,6 +42,7 @@ public class RestaurantManagerMod {
         MinecraftForge.EVENT_BUS.register(this);
         MinecraftForge.EVENT_BUS.register(new RestaurantSignProtectionEvents());
         MinecraftForge.EVENT_BUS.register(new CustomerSpawnEvents());
+        MinecraftForge.EVENT_BUS.register(new SeatingBlockEvents());
         MinecraftForge.EVENT_BUS.register(new SeatingDebugEvents());
     }
 

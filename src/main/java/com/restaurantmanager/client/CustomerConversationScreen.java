@@ -15,27 +15,32 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraftforge.registries.ForgeRegistries;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 public class CustomerConversationScreen extends Screen {
-    private static final ResourceLocation BACKGROUND = new ResourceLocation("restaurantmanager", "textures/gui/customer_conversation.png");
-    private static final ResourceLocation TAKEOUT_BACKGROUND = new ResourceLocation("restaurantmanager", "textures/gui/takeout_customer.png");
     private static final int TEXTURE_WIDTH = 1402;
     private static final int TEXTURE_HEIGHT = 1122;
-    private static final int TAKEOUT_TEXTURE_FULL_WIDTH = 1448;
-    private static final int TAKEOUT_TEXTURE_FULL_HEIGHT = 1086;
-    private static final int TAKEOUT_TEXTURE_SOURCE_X = 40;
-    private static final int TAKEOUT_TEXTURE_SOURCE_Y = 16;
     private static final int TAKEOUT_TEXTURE_WIDTH = 1369;
     private static final int TAKEOUT_TEXTURE_HEIGHT = 1036;
+    private static final int MAX_CONVERSATION_WIDTH = 440;
+    private static final int MAX_TAKEOUT_WIDTH = 350;
     private static final int ITEM_RENDER_SIZE = 16;
     private static final int TAKEOUT_PACKAGE_SLOT_CENTER_X = 263;
-    private static final int TAKEOUT_PACKAGE_SLOT_CENTER_Y = 620;
+    private static final int TAKEOUT_PACKAGE_SLOT_CENTER_Y = 610;
+    private static final int TAKEOUT_PACKAGE_PANEL_X = 78;
+    private static final int TAKEOUT_PACKAGE_PANEL_Y = 365;
+    private static final int TAKEOUT_PACKAGE_PANEL_WIDTH = 370;
+    private static final int TAKEOUT_PACKAGE_PANEL_HEIGHT = 445;
+    private static final int TAKEOUT_ORDER_PANEL_X = 510;
+    private static final int TAKEOUT_ORDER_PANEL_Y = 365;
+    private static final int TAKEOUT_ORDER_PANEL_WIDTH = 780;
+    private static final int TAKEOUT_ORDER_PANEL_HEIGHT = 445;
+    private static final int TAKEOUT_ORDER_INNER_TOP = 385;
+    private static final int TAKEOUT_ORDER_INNER_BOTTOM = 790;
     private static final int TAKEOUT_ORDER_ICON_CENTER_X = 585;
-    private static final int TAKEOUT_ORDER_ICON_CENTER_Y = 480;
-    private static final int TAKEOUT_ORDER_ROW_SPACING = 139;
     private static final int TAKEOUT_ORDER_STATUS_X = 1191;
-    private static final int TAKEOUT_ORDER_STATUS_Y = 435;
     private static final int TAKEOUT_ORDER_STATUS_SIZE = 88;
     private static final int TAKEOUT_TEXT_COLOR = 0x3B2717;
     private static final String[] TAKEOUT_DIALOG_LINES = {
@@ -56,6 +61,7 @@ public class CustomerConversationScreen extends Screen {
     private final boolean takeoutCustomer;
     private final int orderStartIndex;
     private final boolean preferTakeoutOrderSnapshot;
+    private final Set<Integer> locallyUnavailableRequestIndices = new HashSet<>();
     private ItemStack suggestedItem = ItemStack.EMPTY;
     private int leftPos;
     private int topPos;
@@ -135,7 +141,7 @@ public class CustomerConversationScreen extends Screen {
             return;
         }
 
-        this.guiWidth = Math.min(520, this.width - 20);
+        this.guiWidth = Math.min(MAX_CONVERSATION_WIDTH, this.width - 20);
         this.guiHeight = this.guiWidth * TEXTURE_HEIGHT / TEXTURE_WIDTH;
         if (this.guiHeight > this.height - 20) {
             this.guiHeight = this.height - 20;
@@ -163,11 +169,11 @@ public class CustomerConversationScreen extends Screen {
     }
 
     private void initTakeoutLayout() {
-        this.guiHeight = Math.min(TAKEOUT_TEXTURE_HEIGHT, this.height - 20);
-        this.guiWidth = this.guiHeight * TAKEOUT_TEXTURE_WIDTH / TAKEOUT_TEXTURE_HEIGHT;
-        if (this.guiWidth > this.width - 20) {
-            this.guiWidth = this.width - 20;
-            this.guiHeight = this.guiWidth * TAKEOUT_TEXTURE_HEIGHT / TAKEOUT_TEXTURE_WIDTH;
+        this.guiWidth = Math.min(MAX_TAKEOUT_WIDTH, this.width - 20);
+        this.guiHeight = this.guiWidth * TAKEOUT_TEXTURE_HEIGHT / TAKEOUT_TEXTURE_WIDTH;
+        if (this.guiHeight > this.height - 20) {
+            this.guiHeight = this.height - 20;
+            this.guiWidth = this.guiHeight * TAKEOUT_TEXTURE_WIDTH / TAKEOUT_TEXTURE_HEIGHT;
         }
 
         this.leftPos = (this.width - this.guiWidth) / 2;
@@ -188,8 +194,7 @@ public class CustomerConversationScreen extends Screen {
         }
 
         this.renderBackground(graphics);
-        graphics.blit(BACKGROUND, this.leftPos, this.topPos, this.guiWidth, this.guiHeight,
-                0.0F, 0.0F, TEXTURE_WIDTH, TEXTURE_HEIGHT, TEXTURE_WIDTH, TEXTURE_HEIGHT);
+        drawConversationChrome(graphics);
 
         int textColor = 0x2B2118;
         int titleCenterX = textureX(725);
@@ -203,8 +208,8 @@ public class CustomerConversationScreen extends Screen {
         int orderY = textureY(632);
         int orderWidth = textureWidth(595);
 
-        graphics.drawCenteredString(this.font, Component.literal("Customer"), titleCenterX, titleY, textColor);
-        graphics.drawCenteredString(this.font, Component.literal("Restaurant Guest"), nameCenterX, nameY, textColor);
+        drawCenteredCrisp(graphics, "Customer", titleCenterX, titleY, CodeGuiTheme.LIGHT_TEXT);
+        drawCenteredCrisp(graphics, "Restaurant Guest", nameCenterX, nameY, textColor);
         drawWrapped(graphics, Component.literal("Ah, nothing beats a good meal after traveling. I'm starving!"),
                 dialogueX, dialogueY, dialogueWidth, textColor, 4);
         graphics.drawString(this.font, Component.literal("I'd like:"), orderX, orderY, textColor, false);
@@ -213,11 +218,12 @@ public class CustomerConversationScreen extends Screen {
         if (suggestionControlsVisible) {
             graphics.drawString(this.font, Component.literal(suggestedItem.isEmpty() ? "Open inventory and pick food." : "Suggested item:"), orderX, orderY + 34, textColor, false);
             int slotSize = Math.max(18, textureWidth(45));
-            graphics.fill(suggestionSlotX - 1, suggestionSlotY - 1, suggestionSlotX + slotSize + 1, suggestionSlotY + slotSize + 1, 0xFF8B8B8B);
-            graphics.fill(suggestionSlotX, suggestionSlotY, suggestionSlotX + slotSize, suggestionSlotY + slotSize, 0xFF202020);
+            CodeGuiTheme.drawSlot(graphics, suggestionSlotX - 1, suggestionSlotY - 1, slotSize + 2);
             if (!suggestedItem.isEmpty()) {
-                graphics.renderItem(suggestedItem, suggestionSlotX + 3, suggestionSlotY + 3);
-                graphics.renderItemDecorations(this.font, suggestedItem, suggestionSlotX + 3, suggestionSlotY + 3);
+                int itemX = suggestionSlotX + (slotSize - ITEM_RENDER_SIZE) / 2;
+                int itemY = suggestionSlotY + (slotSize - ITEM_RENDER_SIZE) / 2;
+                graphics.renderItem(suggestedItem, itemX, itemY);
+                graphics.renderItemDecorations(this.font, suggestedItem, itemX, itemY);
             }
         }
 
@@ -237,19 +243,75 @@ public class CustomerConversationScreen extends Screen {
 
     private void renderTakeout(GuiGraphics graphics, int mouseX, int mouseY) {
         this.renderBackground(graphics);
-        graphics.blit(TAKEOUT_BACKGROUND, this.leftPos, this.topPos, this.guiWidth, this.guiHeight,
-                TAKEOUT_TEXTURE_SOURCE_X, TAKEOUT_TEXTURE_SOURCE_Y, TAKEOUT_TEXTURE_WIDTH, TAKEOUT_TEXTURE_HEIGHT,
-                TAKEOUT_TEXTURE_FULL_WIDTH, TAKEOUT_TEXTURE_FULL_HEIGHT);
+        drawTakeoutChrome(graphics);
 
         renderTakeoutDialog(graphics);
         renderTakeoutPackageSlot(graphics, mouseX, mouseY);
         renderTakeoutOrderRows(graphics, mouseX, mouseY);
-        renderTakeoutButtonHover(graphics, this.takeoutServeX, this.takeoutButtonY, this.takeoutButtonWidth, this.takeoutButtonHeight, mouseX, mouseY);
-        renderTakeoutButtonHover(graphics, this.takeoutLoseX, this.takeoutButtonY, this.takeoutButtonWidth, this.takeoutButtonHeight, mouseX, mouseY);
-        renderTakeoutButtonHover(graphics, this.takeoutCloseX, this.takeoutButtonY, this.takeoutButtonWidth, this.takeoutButtonHeight, mouseX, mouseY);
         drawButtonLabel(graphics, this.takeoutServeX, this.takeoutButtonY, this.takeoutButtonWidth, this.takeoutButtonHeight, "Serve", mouseX, mouseY);
         drawButtonLabel(graphics, this.takeoutLoseX, this.takeoutButtonY, this.takeoutButtonWidth, this.takeoutButtonHeight, "Unavailable", mouseX, mouseY);
         drawButtonLabel(graphics, this.takeoutCloseX, this.takeoutButtonY, this.takeoutButtonWidth, this.takeoutButtonHeight, "Close", mouseX, mouseY);
+    }
+
+    private void drawConversationChrome(GuiGraphics graphics) {
+        CodeGuiTheme.drawScreenPanel(graphics, this.leftPos, this.topPos, this.guiWidth, this.guiHeight);
+        CodeGuiTheme.drawWoodHeader(graphics, textureX(300), textureY(70), textureWidth(802), textureHeight(105));
+        CodeGuiTheme.drawInsetPanel(graphics, textureX(355), textureY(178), textureWidth(692), textureHeight(82));
+        CodeGuiTheme.drawInsetPanel(graphics, textureX(300), textureY(282), textureWidth(802), textureHeight(240));
+        CodeGuiTheme.drawInsetPanel(graphics, textureX(245), textureY(585), textureWidth(760), textureHeight(178));
+    }
+
+    private void drawTakeoutChrome(GuiGraphics graphics) {
+        CodeGuiTheme.drawScreenPanel(graphics, this.leftPos, this.topPos, this.guiWidth, this.guiHeight);
+        CodeGuiTheme.drawWoodHeader(graphics, takeoutX(100), takeoutY(58), takeoutWidth(1169), takeoutHeight(92));
+        drawCenteredCrisp(graphics, "TAKEOUT ORDER", this.leftPos + this.guiWidth / 2,
+                takeoutY(88), CodeGuiTheme.LIGHT_TEXT);
+        CodeGuiTheme.drawInsetPanel(graphics, takeoutX(315), takeoutY(145), takeoutWidth(920), takeoutHeight(190));
+        CodeGuiTheme.drawInsetPanel(graphics, takeoutX(TAKEOUT_PACKAGE_PANEL_X), takeoutY(TAKEOUT_PACKAGE_PANEL_Y),
+                takeoutWidth(TAKEOUT_PACKAGE_PANEL_WIDTH), takeoutHeight(TAKEOUT_PACKAGE_PANEL_HEIGHT));
+        CodeGuiTheme.drawInsetPanel(graphics, takeoutX(TAKEOUT_ORDER_PANEL_X), takeoutY(TAKEOUT_ORDER_PANEL_Y),
+                takeoutWidth(TAKEOUT_ORDER_PANEL_WIDTH), takeoutHeight(TAKEOUT_ORDER_PANEL_HEIGHT));
+
+        int packageCenterX = takeoutX(TAKEOUT_PACKAGE_SLOT_CENTER_X);
+        drawCenteredCrisp(graphics, "PACKAGE", packageCenterX,
+                takeoutY(TAKEOUT_PACKAGE_PANEL_Y) + 8, CodeGuiTheme.MUTED_TEXT);
+        CodeGuiTheme.drawSeparator(graphics, takeoutX(TAKEOUT_PACKAGE_PANEL_X + 24),
+                takeoutY(TAKEOUT_PACKAGE_PANEL_Y) + 21, takeoutWidth(TAKEOUT_PACKAGE_PANEL_WIDTH - 48));
+        drawTakeoutCenteredSlot(graphics, TAKEOUT_PACKAGE_SLOT_CENTER_X, TAKEOUT_PACKAGE_SLOT_CENTER_Y, 116);
+        int packageSlotSize = takeoutWidth(116);
+        int packageSlotTop = takeoutY(TAKEOUT_PACKAGE_SLOT_CENTER_Y) - packageSlotSize / 2;
+        drawCenteredCrisp(graphics, "PLACE HERE", packageCenterX,
+                packageSlotTop - this.font.lineHeight - 4, CodeGuiTheme.MUTED_TEXT);
+
+        for (int row = 0; row < 3; row++) {
+            int rowCenterY = takeoutOrderRowCenterY(row);
+            drawCenteredSlot(graphics, takeoutX(TAKEOUT_ORDER_ICON_CENTER_X), rowCenterY, takeoutWidth(74));
+            int statusSize = takeoutWidth(TAKEOUT_ORDER_STATUS_SIZE);
+            CodeGuiTheme.drawButton(graphics, takeoutX(TAKEOUT_ORDER_STATUS_X),
+                    rowCenterY - statusSize / 2, statusSize, statusSize, false, true);
+            if (row > 0) {
+                CodeGuiTheme.drawSeparator(graphics, takeoutX(535), takeoutOrderRowTop(row),
+                        takeoutWidth(720));
+            }
+        }
+    }
+
+    private void drawTakeoutCenteredSlot(GuiGraphics graphics, int textureCenterX, int textureCenterY, int textureSize) {
+        drawCenteredSlot(graphics, takeoutX(textureCenterX), takeoutY(textureCenterY), takeoutWidth(textureSize));
+    }
+
+    private void drawCenteredSlot(GuiGraphics graphics, int centerX, int centerY, int size) {
+        CodeGuiTheme.drawSlot(graphics, centerX - size / 2, centerY - size / 2, size);
+    }
+
+    private int takeoutOrderRowTop(int row) {
+        int top = takeoutY(TAKEOUT_ORDER_INNER_TOP);
+        int bottom = takeoutY(TAKEOUT_ORDER_INNER_BOTTOM);
+        return top + (bottom - top) * row / 3;
+    }
+
+    private int takeoutOrderRowCenterY(int row) {
+        return (takeoutOrderRowTop(row) + takeoutOrderRowTop(row + 1)) / 2;
     }
 
     private void renderTakeoutDialog(GuiGraphics graphics) {
@@ -274,13 +336,14 @@ public class CustomerConversationScreen extends Screen {
         List<String> names = getTakeoutOrderNames();
         List<ItemStack> items = getTakeoutOrderItems();
         for (int row = 0; row < 3; row++) {
+            int rowCenterY = takeoutOrderRowCenterY(row);
             int iconX = takeoutCenteredItemX(TAKEOUT_ORDER_ICON_CENTER_X);
-            int iconY = takeoutCenteredItemY(TAKEOUT_ORDER_ICON_CENTER_Y + row * TAKEOUT_ORDER_ROW_SPACING);
+            int iconY = rowCenterY - ITEM_RENDER_SIZE / 2;
             int textX = takeoutX(656);
-            int textY = takeoutY(472 + row * TAKEOUT_ORDER_ROW_SPACING);
+            int textY = rowCenterY - this.font.lineHeight / 2;
             int statusX = takeoutX(TAKEOUT_ORDER_STATUS_X);
-            int statusY = takeoutY(TAKEOUT_ORDER_STATUS_Y + row * TAKEOUT_ORDER_ROW_SPACING);
             int statusSize = takeoutWidth(TAKEOUT_ORDER_STATUS_SIZE);
+            int statusY = rowCenterY - statusSize / 2;
 
             if (row < items.size() && !items.get(row).isEmpty()) {
                 ItemStack stack = items.get(row);
@@ -293,8 +356,8 @@ public class CustomerConversationScreen extends Screen {
 
             if (row < names.size() && !names.get(row).isBlank()) {
                 drawClippedString(graphics, names.get(row), textX, textY, takeoutWidth(485), TAKEOUT_TEXT_COLOR);
-                graphics.drawCenteredString(this.font, Component.literal("!"),
-                        statusX + statusSize / 2, statusY + statusSize / 2 - 4, 0xFFF2D0);
+                drawCenteredCrisp(graphics, "!", statusX + statusSize / 2,
+                        statusY + (statusSize - this.font.lineHeight) / 2, 0xFFFFF2D0);
                 if (isInside(mouseX, mouseY, statusX, statusY, statusSize, statusSize)) {
                     graphics.fill(statusX + 3, statusY + 3, statusX + statusSize - 3, statusY + statusSize - 3, 0x44FFFFFF);
                     graphics.renderTooltip(this.font, Component.literal("Item unavailable"), mouseX, mouseY);
@@ -352,22 +415,32 @@ public class CustomerConversationScreen extends Screen {
     }
 
     private List<ItemStack> getTakeoutOrderItems() {
+        List<ItemStack> items;
         if (preferTakeoutOrderSnapshot && !orderItems.isEmpty()) {
-            return orderItems;
+            items = orderItems;
+        } else {
+            CustomerEntity customer = getLiveCustomer();
+            items = customer == null ? orderItems : customer.getOrderItemStacks();
         }
-        CustomerEntity customer = getLiveCustomer();
-        if (customer != null) {
-            List<ItemStack> liveItems = customer.getOrderItemStacks();
-            if (!liveItems.isEmpty()) {
-                return liveItems;
+
+        if (locallyUnavailableRequestIndices.isEmpty() || items.isEmpty()) {
+            return items;
+        }
+
+        int currentOrderStartIndex = getTakeoutOrderStartIndex();
+        List<ItemStack> displayedItems = new ArrayList<>(items);
+        for (int requestIndex : locallyUnavailableRequestIndices) {
+            int localIndex = requestIndex - currentOrderStartIndex;
+            if (localIndex >= 0 && localIndex < displayedItems.size()) {
+                displayedItems.set(localIndex, ItemStack.EMPTY);
             }
         }
-        return orderItems;
+        return displayedItems;
     }
 
     private String getTakeoutOrderSummary() {
         CustomerEntity customer = getLiveCustomer();
-        if (customer != null && !customer.getOrderSummary().isBlank()) {
+        if (customer != null) {
             return customer.getOrderSummary();
         }
         return orderSummary;
@@ -387,17 +460,17 @@ public class CustomerConversationScreen extends Screen {
         return entity instanceof CustomerEntity customer ? customer : null;
     }
 
-    private void renderTakeoutButtonHover(GuiGraphics graphics, int x, int y, int width, int height, int mouseX, int mouseY) {
-        if (isInside(mouseX, mouseY, x, y, width, height)) {
-            graphics.fill(x + 5, y + 5, x + width - 5, y + height - 5, 0x22FFFFFF);
-        }
+    private void drawButtonLabel(GuiGraphics graphics, int x, int y, int width, int height, String label, int mouseX, int mouseY) {
+        boolean danger = label.equals("Unavailable") || label.equals("Close");
+        CodeGuiTheme.drawButton(graphics, x, y, width, height,
+                isInside(mouseX, mouseY, x, y, width, height), danger);
+        drawCenteredCrisp(graphics, label, x + width / 2,
+                y + (height - this.font.lineHeight) / 2, CodeGuiTheme.LIGHT_TEXT);
     }
 
-    private void drawButtonLabel(GuiGraphics graphics, int x, int y, int width, int height, String label, int mouseX, int mouseY) {
-        if (isInside(mouseX, mouseY, x, y, width, height)) {
-            graphics.fill(x + 4, y + 4, x + width - 4, y + height - 4, 0x22FFFFFF);
-        }
-        graphics.drawCenteredString(this.font, Component.literal(label), x + width / 2, y + height / 2 - 4, 0xFFFFFF);
+    private void drawCenteredCrisp(GuiGraphics graphics, String text, int centerX, int y, int color) {
+        graphics.drawString(this.font, Component.literal(text), centerX - this.font.width(text) / 2,
+                y, color, false);
     }
 
     private void drawWrapped(GuiGraphics graphics, Component text, int x, int y, int width, int color, int maxLines) {
@@ -470,8 +543,8 @@ public class CustomerConversationScreen extends Screen {
     private boolean mouseClickedTakeout(double mouseX, double mouseY) {
         for (int row = 0; row < 3; row++) {
             int statusX = takeoutX(TAKEOUT_ORDER_STATUS_X);
-            int statusY = takeoutY(TAKEOUT_ORDER_STATUS_Y + row * TAKEOUT_ORDER_ROW_SPACING);
             int statusSize = takeoutWidth(TAKEOUT_ORDER_STATUS_SIZE);
+            int statusY = takeoutOrderRowCenterY(row) - statusSize / 2;
             List<String> names = getTakeoutOrderNames();
             if (row < names.size() && !names.get(row).isBlank()
                     && isInside(mouseX, mouseY, statusX, statusY, statusSize, statusSize)) {
@@ -483,6 +556,7 @@ public class CustomerConversationScreen extends Screen {
                         "",
                         requestIndex
                 ));
+                locallyUnavailableRequestIndices.add(requestIndex);
                 return true;
             }
         }

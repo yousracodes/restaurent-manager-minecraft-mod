@@ -10,6 +10,11 @@ out/
 .idea/
 *.iml
 .vscode/
+
+# Local agents, credentials, and generated tooling
+.agents/
+.codex/
+.aws/
 .tools/
 .venv-hf/
 tools/

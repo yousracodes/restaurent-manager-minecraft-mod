@@ -24,7 +24,7 @@ public class TakeoutPackageScreen extends AbstractContainerScreen<TakeoutPackage
     @Override
     protected void renderBg(GuiGraphics graphics, float partialTick, int mouseX, int mouseY) {
         graphics.blit(TEXTURE, leftPos, topPos, 0, 0, 256, 144, 256, 144);
-        InventoryPanelRenderer.drawPanel(graphics, leftPos + 48, topPos + 145);
+        InventoryPanelRenderer.drawLegacyContainerPanel(graphics, leftPos + 48, topPos + 145);
     }
 
     @Override

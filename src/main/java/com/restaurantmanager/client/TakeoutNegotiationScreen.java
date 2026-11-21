@@ -16,9 +16,9 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class TakeoutNegotiationScreen extends Screen {
-    private static final ResourceLocation BACKGROUND = new ResourceLocation("restaurantmanager", "textures/gui/takeout_negotiation.png");
     private static final int TEXTURE_WIDTH = 1448;
     private static final int TEXTURE_HEIGHT = 1086;
+    private static final int MAX_GUI_WIDTH = 320;
     private static final int ITEM_RENDER_SIZE = 16;
     private static final float SUGGESTION_ITEM_SCALE = 1.75F;
     private static final int UNAVAILABLE_SLOT_X = 166;
@@ -27,18 +27,15 @@ public class TakeoutNegotiationScreen extends Screen {
     private static final int SPEECH_X = 462;
     private static final int SPEECH_Y = 184;
     private static final int SPEECH_WIDTH = 828;
-    private static final int SUGGESTION_SLOT_X = 544;
-    private static final int SUGGESTION_SLOT_Y = 520;
-    private static final int SUGGESTION_SLOT_WIDTH = 436;
-    private static final int SUGGESTION_SLOT_HEIGHT = 334;
+    private static final int SUGGESTION_SLOT_X = 597;
+    private static final int SUGGESTION_SLOT_Y = 572;
+    private static final int SUGGESTION_SLOT_WIDTH = 330;
+    private static final int SUGGESTION_SLOT_HEIGHT = 230;
     private static final int CHECK_BUTTON_X = 204;
     private static final int CANCEL_BUTTON_X = 805;
     private static final int BUTTON_Y = 943;
     private static final int BUTTON_WIDTH = 522;
     private static final int BUTTON_HEIGHT = 104;
-    private static final int BUTTON_LABEL_OFFSET_X = -18;
-    private static final int BUTTON_LABEL_OFFSET_Y = -32;
-    private static final int SUGGESTION_ITEM_OFFSET_X = -18;
     private static final int INVENTORY_GAP = 8;
     private static final int MIN_GUI_WIDTH = 260;
 
@@ -78,11 +75,11 @@ public class TakeoutNegotiationScreen extends Screen {
 
     @Override
     protected void init() {
-        this.guiHeight = Math.min(TEXTURE_HEIGHT, this.height - 20);
-        this.guiWidth = this.guiHeight * TEXTURE_WIDTH / TEXTURE_HEIGHT;
-        if (this.guiWidth > this.width - 20) {
-            this.guiWidth = this.width - 20;
-            this.guiHeight = this.guiWidth * TEXTURE_HEIGHT / TEXTURE_WIDTH;
+        this.guiWidth = Math.min(MAX_GUI_WIDTH, this.width - 20);
+        this.guiHeight = this.guiWidth * TEXTURE_HEIGHT / TEXTURE_WIDTH;
+        if (this.guiHeight > this.height - 20) {
+            this.guiHeight = this.height - 20;
+            this.guiWidth = this.guiHeight * TEXTURE_WIDTH / TEXTURE_HEIGHT;
         }
 
         boolean inventoryBesideGui = this.guiWidth + INVENTORY_GAP + InventoryPanelRenderer.PANEL_WIDTH <= this.width - 20;
@@ -124,8 +121,7 @@ public class TakeoutNegotiationScreen extends Screen {
     @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
         renderBackground(graphics);
-        graphics.blit(BACKGROUND, leftPos, topPos, guiWidth, guiHeight,
-                0.0F, 0.0F, TEXTURE_WIDTH, TEXTURE_HEIGHT, TEXTURE_WIDTH, TEXTURE_HEIGHT);
+        drawNegotiationChrome(graphics);
 
         renderUnavailableItem(graphics, mouseX, mouseY);
         drawWrapped(graphics, Component.literal(unavailableItemName + " is unavailable? I'll go with whatever you suggest."),
@@ -135,6 +131,22 @@ public class TakeoutNegotiationScreen extends Screen {
         renderButton(graphics, checkX, buttonY, buttonWidth, buttonHeight, "Suggest", mouseX, mouseY);
         renderButton(graphics, cancelX, buttonY, buttonWidth, buttonHeight, "Skip Item", mouseX, mouseY);
         renderTooltipForHoveredInventory(graphics, mouseX, mouseY);
+    }
+
+    private void drawNegotiationChrome(GuiGraphics graphics) {
+        CodeGuiTheme.drawScreenPanel(graphics, leftPos, topPos, guiWidth, guiHeight);
+        CodeGuiTheme.drawWoodHeader(graphics, x(110), y(70), w(1228), h(95));
+        drawCenteredCrisp(graphics, "SUGGEST A REPLACEMENT", leftPos + guiWidth / 2,
+                y(101), CodeGuiTheme.LIGHT_TEXT);
+        CodeGuiTheme.drawSlot(graphics, x(UNAVAILABLE_SLOT_X), y(UNAVAILABLE_SLOT_Y), w(UNAVAILABLE_SLOT_SIZE));
+        CodeGuiTheme.drawInsetPanel(graphics, x(SPEECH_X - 25), y(SPEECH_Y - 25),
+                w(SPEECH_WIDTH + 50), h(225));
+        CodeGuiTheme.drawInsetPanel(graphics, x(SUGGESTION_SLOT_X), y(SUGGESTION_SLOT_Y),
+                w(SUGGESTION_SLOT_WIDTH), h(SUGGESTION_SLOT_HEIGHT));
+        drawCenteredCrisp(graphics, suggestedItem.isEmpty()
+                        ? "Choose an item from inventory" : "Suggested replacement",
+                x(SUGGESTION_SLOT_X) + w(SUGGESTION_SLOT_WIDTH) / 2,
+                y(SUGGESTION_SLOT_Y) - this.font.lineHeight - 6, CodeGuiTheme.MUTED_TEXT);
     }
 
     private void renderUnavailableItem(GuiGraphics graphics, int mouseX, int mouseY) {
@@ -172,7 +184,7 @@ public class TakeoutNegotiationScreen extends Screen {
 
     private void renderCenteredScaledItem(GuiGraphics graphics, ItemStack stack, int x, int y, int width, int height, float scale) {
         int scaledSize = Math.round(ITEM_RENDER_SIZE * scale);
-        int itemX = x + (width - scaledSize) / 2 + w(SUGGESTION_ITEM_OFFSET_X);
+        int itemX = x + (width - scaledSize) / 2;
         int itemY = y + (height - scaledSize) / 2;
         graphics.pose().pushPose();
         graphics.pose().translate(itemX, itemY, 0.0F);
@@ -221,14 +233,16 @@ public class TakeoutNegotiationScreen extends Screen {
     }
 
     private void renderButton(GuiGraphics graphics, int x, int y, int width, int height, String label, int mouseX, int mouseY) {
-        if (isInside(mouseX, mouseY, x, y, width, height)) {
-            graphics.fill(x + 5, y + 5, x + width - 5, y + height - 5, 0x22FFFFFF);
-        }
-        int labelX = x + width / 2 + w(BUTTON_LABEL_OFFSET_X);
+        CodeGuiTheme.drawButton(graphics, x, y, width, height,
+                isInside(mouseX, mouseY, x, y, width, height), label.equals("Skip Item"));
+        int labelX = x + width / 2;
         int labelY = y + (height - this.font.lineHeight) / 2;
-        labelY += h(BUTTON_LABEL_OFFSET_Y);
-        graphics.drawCenteredString(this.font, Component.literal(label), labelX + 1, labelY + 1, 0x6B3F1D);
-        graphics.drawCenteredString(this.font, Component.literal(label), labelX, labelY, 0xFFF2D2);
+        drawCenteredCrisp(graphics, label, labelX, labelY, CodeGuiTheme.LIGHT_TEXT);
+    }
+
+    private void drawCenteredCrisp(GuiGraphics graphics, String text, int centerX, int y, int color) {
+        graphics.drawString(this.font, Component.literal(text), centerX - this.font.width(text) / 2,
+                y, color, false);
     }
 
     @Override

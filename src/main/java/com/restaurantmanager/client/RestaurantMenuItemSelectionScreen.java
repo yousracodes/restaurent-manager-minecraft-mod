@@ -39,10 +39,11 @@ public class RestaurantMenuItemSelectionScreen extends Screen {
     @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
         this.renderBackground(graphics);
-        graphics.fill(this.leftPos, this.topPos, this.leftPos + 220, this.topPos + 150, 0xFF2E2E2E);
-        graphics.fill(this.leftPos + 3, this.topPos + 3, this.leftPos + 217, this.topPos + 147, 0xFFC7C5BF);
-        graphics.fill(this.leftPos + 8, this.topPos + 8, this.leftPos + 212, this.topPos + 142, 0xFFB6B3AB);
-        graphics.drawCenteredString(this.font, Component.literal("Select Restaurant Menu"), this.leftPos + 110, this.topPos + 16, 0x2B2118);
+        CodeGuiTheme.drawScreenPanel(graphics, this.leftPos, this.topPos, 220, 150);
+        CodeGuiTheme.drawWoodHeader(graphics, this.leftPos + 10, this.topPos + 8, 200, 24);
+        graphics.drawString(this.font, Component.literal("Select Restaurant Menu"),
+                this.leftPos + 110 - this.font.width("Select Restaurant Menu") / 2,
+                this.topPos + 16, CodeGuiTheme.LIGHT_TEXT, false);
 
         drawInventory(graphics, mouseX, mouseY);
         drawButton(graphics, this.backX, this.backY, 70, 20, "Back", 0xFF3C6596, mouseX, mouseY);
@@ -104,17 +105,10 @@ public class RestaurantMenuItemSelectionScreen extends Screen {
     }
 
     private void drawButton(GuiGraphics graphics, int x, int y, int width, int height, String label, int color, int mouseX, int mouseY) {
-        int fill = isInside(mouseX, mouseY, x, y, width, height) ? brighten(color) : color;
-        graphics.fill(x, y, x + width, y + height, 0xFF1F1F1F);
-        graphics.fill(x + 2, y + 2, x + width - 2, y + height - 2, fill);
-        graphics.drawCenteredString(this.font, Component.literal(label), x + width / 2, y + 6, 0xFFFFFF);
-    }
-
-    private int brighten(int color) {
-        int r = Math.min(255, ((color >> 16) & 255) + 28);
-        int g = Math.min(255, ((color >> 8) & 255) + 28);
-        int b = Math.min(255, (color & 255) + 28);
-        return 0xFF000000 | (r << 16) | (g << 8) | b;
+        CodeGuiTheme.drawButton(graphics, x, y, width, height,
+                isInside(mouseX, mouseY, x, y, width, height), false);
+        graphics.drawString(this.font, Component.literal(label), x + (width - this.font.width(label)) / 2,
+                y + (height - this.font.lineHeight) / 2, CodeGuiTheme.LIGHT_TEXT, false);
     }
 
     private boolean isInside(double mouseX, double mouseY, int x, int y, int width, int height) {

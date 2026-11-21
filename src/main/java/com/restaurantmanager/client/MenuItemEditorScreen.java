@@ -24,14 +24,8 @@ import java.util.List;
 import java.util.Locale;
 
 public class MenuItemEditorScreen extends Screen {
-    private static final ResourceLocation BACKGROUND =
-            new ResourceLocation("restaurantmanager", "textures/gui/restaurant_menu_editor.png");
-    private static final ResourceLocation SEARCH_ICON =
-            new ResourceLocation("restaurantmanager", "textures/gui/search_icon.png");
     private static final int TEXTURE_SIZE = 1254;
-    private static final int SEARCH_ICON_TEXTURE_SIZE = 1007;
     private static final int LIGHT_TEXT_COLOR = 0xFFF2D2;
-    private static final int TEXT_SHADOW_COLOR = 0x6B3F1D;
     private static final int DARK_TEXT_COLOR = 0x2B2118;
     private static final int MUTED_TEXT_COLOR = 0x6F5538;
     private static final int DANGER_TEXT_COLOR = 0x9D1E16;
@@ -110,7 +104,7 @@ public class MenuItemEditorScreen extends Screen {
 
     @Override
     protected void init() {
-        this.guiSize = Math.min(310, Math.min(this.width - 20, this.height - 20));
+        this.guiSize = Math.min(285, Math.min(this.width - 20, this.height - 20));
         this.leftPos = (this.width - this.guiSize) / 2;
         this.topPos = (this.height - this.guiSize) / 2;
 
@@ -176,8 +170,7 @@ public class MenuItemEditorScreen extends Screen {
     @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
         this.renderBackground(graphics);
-        graphics.blit(BACKGROUND, this.leftPos, this.topPos, this.guiSize, this.guiSize,
-                0.0F, 0.0F, TEXTURE_SIZE, TEXTURE_SIZE, TEXTURE_SIZE, TEXTURE_SIZE);
+        drawEditorChrome(graphics);
 
         drawCenteredDark(graphics, "Restaurant", this.restaurantNameX + this.restaurantNameWidth / 2, this.restaurantNameY);
         drawEditableCenteredDark(graphics, this.menuNameBox, this.menuNameX + this.menuNameWidth / 2, this.menuNameY);
@@ -187,10 +180,34 @@ public class MenuItemEditorScreen extends Screen {
         renderSelectedItems(graphics, mouseX, mouseY);
         renderActionLabel(graphics, this.saveX, this.saveY, this.actionWidth, this.actionHeight, "Save", mouseX, mouseY);
         renderActionLabel(graphics, this.cancelX, this.cancelY, this.actionWidth, this.actionHeight, "Cancel", mouseX, mouseY);
-        renderArrowHover(graphics, this.categoryLeftX, this.categoryButtonY, mouseX, mouseY);
-        renderArrowHover(graphics, this.categoryRightX, this.categoryButtonY, mouseX, mouseY);
+        renderArrowButton(graphics, this.categoryLeftX, this.categoryButtonY, false, mouseX, mouseY);
+        renderArrowButton(graphics, this.categoryRightX, this.categoryButtonY, true, mouseX, mouseY);
 
         drawEditableFittedDark(graphics, this.searchBox, this.searchX, this.searchY, this.searchWidth, "Search");
+    }
+
+    private void drawEditorChrome(GuiGraphics graphics) {
+        CodeGuiTheme.drawScreenPanel(graphics, this.leftPos, this.topPos, this.guiSize, this.guiSize);
+        CodeGuiTheme.drawWoodHeader(graphics, textureX(220), textureY(105), textureWidth(814), textureHeight(105));
+        CodeGuiTheme.drawInsetPanel(graphics, textureX(190), textureY(228), textureWidth(875), textureHeight(82));
+        CodeGuiTheme.drawInsetPanel(graphics, textureX(420), textureY(318), textureWidth(414), textureHeight(83));
+
+        int paneY = textureY(406);
+        int paneHeight = textureHeight(620);
+        CodeGuiTheme.drawInsetPanel(graphics, textureX(115), paneY, textureWidth(500), paneHeight);
+        CodeGuiTheme.drawInsetPanel(graphics, textureX(636), paneY, textureWidth(500), paneHeight);
+        CodeGuiTheme.drawInsetPanel(graphics, textureX(218), textureY(421), textureWidth(350), textureHeight(69));
+
+        graphics.drawString(this.font, Component.literal("FOODS"), textureX(137), textureY(414),
+                CodeGuiTheme.MUTED_TEXT, false);
+        graphics.drawString(this.font, Component.literal("SELECTED"), textureX(662), textureY(414),
+                CodeGuiTheme.MUTED_TEXT, false);
+        for (int row = 1; row < VISIBLE_ROWS; row++) {
+            CodeGuiTheme.drawSeparator(graphics, this.foodListX, this.foodListY + row * this.rowHeight - 2,
+                    this.foodListWidth);
+            CodeGuiTheme.drawSeparator(graphics, this.selectedListX, this.selectedListY + row * this.rowHeight - 2,
+                    this.selectedListWidth);
+        }
     }
 
     private void renderFoodCatalog(GuiGraphics graphics, int mouseX, int mouseY) {
@@ -451,16 +468,16 @@ public class MenuItemEditorScreen extends Screen {
     }
 
     private void renderActionLabel(GuiGraphics graphics, int x, int y, int width, int height, String label, int mouseX, int mouseY) {
-        if (isInside(mouseX, mouseY, x, y, width, height)) {
-            graphics.fill(x + 4, y + 4, x + width - 4, y + height - 4, 0x22FFFFFF);
-        }
-        drawCenteredDark(graphics, label, x + width / 2, y + height / 2 - 4);
+        CodeGuiTheme.drawButton(graphics, x, y, width, height,
+                isInside(mouseX, mouseY, x, y, width, height), label.equals("Cancel"));
+        drawCenteredLight(graphics, label, x + width / 2, y + height / 2 - 4);
     }
 
-    private void renderArrowHover(GuiGraphics graphics, int x, int y, int mouseX, int mouseY) {
-        if (isInside(mouseX, mouseY, x, y, this.categoryButtonSize, this.categoryButtonSize)) {
-            graphics.fill(x + 3, y + 3, x + this.categoryButtonSize - 3, y + this.categoryButtonSize - 3, 0x22FFFFFF);
-        }
+    private void renderArrowButton(GuiGraphics graphics, int x, int y, boolean right, int mouseX, int mouseY) {
+        CodeGuiTheme.drawButton(graphics, x, y, this.categoryButtonSize, this.categoryButtonSize,
+                isInside(mouseX, mouseY, x, y, this.categoryButtonSize, this.categoryButtonSize), false);
+        CodeGuiTheme.drawArrow(graphics, x + this.categoryButtonSize / 2, y + this.categoryButtonSize / 2,
+                right, CodeGuiTheme.LIGHT_TEXT);
     }
 
     private void drawFittedDark(GuiGraphics graphics, String text, int x, int y, int maxWidth) {
@@ -476,7 +493,7 @@ public class MenuItemEditorScreen extends Screen {
 
     private void renderScaledItem(GuiGraphics graphics, ItemStack stack, int slotX, int slotY) {
         int renderSize = Math.round(16 * ITEM_ICON_SCALE);
-        int itemX = slotX + (this.iconSize - renderSize) / 2 - textureWidth(14);
+        int itemX = slotX + (this.iconSize - renderSize) / 2;
         int itemY = slotY + (this.iconSize - renderSize) / 2;
         graphics.pose().pushPose();
         graphics.pose().translate(itemX, itemY, 0.0F);
@@ -487,9 +504,7 @@ public class MenuItemEditorScreen extends Screen {
     }
 
     private void drawSearchIcon(GuiGraphics graphics, int x, int y, int size) {
-        graphics.blit(SEARCH_ICON, x, y, size, size, 0.0F, 0.0F,
-                SEARCH_ICON_TEXTURE_SIZE, SEARCH_ICON_TEXTURE_SIZE,
-                SEARCH_ICON_TEXTURE_SIZE, SEARCH_ICON_TEXTURE_SIZE);
+        CodeGuiTheme.drawMagnifier(graphics, x, y, size);
     }
 
     private void drawEditableCenteredDark(GuiGraphics graphics, EditBox box, int centerX, int y) {
@@ -514,8 +529,6 @@ public class MenuItemEditorScreen extends Screen {
     }
 
     private void drawCenteredLight(GuiGraphics graphics, String text, int centerX, int y) {
-        graphics.drawString(this.font, Component.literal(text), centerX - this.font.width(text) / 2 + 1, y + 1,
-                TEXT_SHADOW_COLOR, false);
         graphics.drawString(this.font, Component.literal(text), centerX - this.font.width(text) / 2, y,
                 LIGHT_TEXT_COLOR, false);
     }

@@ -6,8 +6,6 @@ import com.restaurantmanager.network.packet.ToggleRestaurantOpenPacket;
 import com.restaurantmanager.restaurant.MenuCategory;
 import com.restaurantmanager.setup.ModItems;
 import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.client.gui.components.Button;
-import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
@@ -24,11 +22,8 @@ public class RestaurantManagementScreen extends Screen {
     private static final int FIRST_CARD_Y = 69;
 
     private static final int OUTLINE = 0xFF000000;
-    private static final int PANEL = 0xFFC6C6C6;
-    private static final int PANEL_LIGHT = 0xFFFFFFFF;
-    private static final int PANEL_SHADOW = 0xFF555555;
-    private static final int PANEL_DARK_SHADOW = 0xFF373737;
-    private static final int SLOT = 0xFF8B8B8B;
+    private static final int PANEL_SHADOW = 0xFF9C815D;
+    private static final int PANEL_DARK_SHADOW = 0xFF5C4A36;
     private static final int MUTED_TEXT = 0xFF5F5F5F;
     private static final int VALUE_TEXT = 0xFF202020;
     private static final int WOOD = 0xFF9A5B2E;
@@ -55,7 +50,7 @@ public class RestaurantManagementScreen extends Screen {
     private final String[] menuTitles;
     private final int[] menuItemCounts;
     private String restaurantName;
-    private EditBox nameBox;
+    private CrispEditBox nameBox;
     private int leftPos;
     private int topPos;
 
@@ -101,37 +96,32 @@ public class RestaurantManagementScreen extends Screen {
         this.leftPos = (this.width - GUI_WIDTH) / 2;
         this.topPos = (this.height - GUI_HEIGHT) / 2;
 
-        this.nameBox = new EditBox(this.font, this.leftPos + 44, this.topPos + 23, 188, 21,
-                Component.literal("Restaurant Name"));
+        this.nameBox = new CrispEditBox(this.font, this.leftPos + 46, this.topPos + 23, 184, 21,
+                Component.literal("Restaurant Name"), CodeGuiTheme.TEXT);
         this.nameBox.setValue(this.restaurantName);
         this.nameBox.setMaxLength(32);
-        this.nameBox.setBordered(true);
-        this.nameBox.setTextColor(0xFFFFFF);
-        this.nameBox.setTextColorUneditable(0xA0A0A0);
+        this.nameBox.setBordered(false);
         this.nameBox.setFocused(false);
         this.addRenderableWidget(this.nameBox);
 
         int buttonY = this.topPos + 209;
         int buttonWidth = 97;
-        this.addRenderableWidget(Button.builder(Component.literal("Menus"), button -> {
+        this.addRenderableWidget(new ThemedButton(this.leftPos + MARGIN, buttonY, buttonWidth, 20,
+                Component.literal("Menus"), button -> {
                     saveName();
                     this.minecraft.setScreen(new RestaurantMenuManagerScreen(this, this.signPos, this.menuTitles, this.menuItemCounts));
-                })
-                .bounds(this.leftPos + MARGIN, buttonY, buttonWidth, 20)
-                .build());
+                }));
 
-        this.addRenderableWidget(Button.builder(toggleLabel(), button -> {
+        this.addRenderableWidget(new ThemedButton(this.leftPos + MARGIN + buttonWidth + CARD_GAP, buttonY,
+                buttonWidth, 20, toggleLabel(), button -> {
                     saveName();
                     this.open = !this.open;
                     button.setMessage(toggleLabel());
                     ModNetwork.CHANNEL.sendToServer(new ToggleRestaurantOpenPacket(this.signPos, this.open));
-                })
-                .bounds(this.leftPos + MARGIN + buttonWidth + CARD_GAP, buttonY, buttonWidth, 20)
-                .build());
+                }));
 
-        this.addRenderableWidget(Button.builder(Component.literal("Done"), button -> this.onClose())
-                .bounds(this.leftPos + MARGIN + (buttonWidth + CARD_GAP) * 2, buttonY, 100, 20)
-                .build());
+        this.addRenderableWidget(new ThemedButton(this.leftPos + MARGIN + (buttonWidth + CARD_GAP) * 2,
+                buttonY, 100, 20, Component.literal("Done"), button -> this.onClose()));
     }
 
     @Override
@@ -153,7 +143,8 @@ public class RestaurantManagementScreen extends Screen {
         drawItemSlot(graphics, x + 6, y + 9);
         graphics.renderItem(new ItemStack(ModItems.RESTAURANT_SIGN.get()), x + 9, y + 12);
 
-        graphics.drawString(this.font, Component.literal("RESTAURANT"), x + 35, y + 5, 0xFFE7C184, true);
+        graphics.drawString(this.font, Component.literal("RESTAURANT"), x + 35, y + 5, 0xFFFFD99A, false);
+        CodeGuiTheme.drawInsetPanel(graphics, this.leftPos + 42, this.topPos + 21, 192, 25);
         drawStatusBadge(graphics, x + width - 72, y + 14, 66, 21);
     }
 
@@ -165,7 +156,7 @@ public class RestaurantManagementScreen extends Screen {
         int lineY = y + 4;
         graphics.fill(left, lineY, centerX - titleWidth / 2 - 7, lineY + 1, PANEL_SHADOW);
         graphics.fill(centerX + titleWidth / 2 + 7, lineY, right, lineY + 1, PANEL_SHADOW);
-        graphics.drawCenteredString(this.font, Component.literal(title), centerX, y, MUTED_TEXT);
+        graphics.drawString(this.font, Component.literal(title), centerX - titleWidth / 2, y, MUTED_TEXT, false);
     }
 
     private void drawStats(GuiGraphics graphics) {
@@ -261,40 +252,19 @@ public class RestaurantManagementScreen extends Screen {
     }
 
     private void drawRaisedPanel(GuiGraphics graphics, int x, int y, int width, int height) {
-        graphics.fill(x + 3, y + 4, x + width + 3, y + height + 4, 0x88000000);
-        graphics.fill(x, y, x + width, y + height, OUTLINE);
-        graphics.fill(x + 1, y + 1, x + width - 1, y + height - 1, PANEL);
-        graphics.fill(x + 1, y + 1, x + width - 2, y + 3, PANEL_LIGHT);
-        graphics.fill(x + 1, y + 1, x + 3, y + height - 2, PANEL_LIGHT);
-        graphics.fill(x + 2, y + height - 3, x + width - 1, y + height - 1, PANEL_SHADOW);
-        graphics.fill(x + width - 3, y + 2, x + width - 1, y + height - 1, PANEL_SHADOW);
+        CodeGuiTheme.drawScreenPanel(graphics, x, y, width, height);
     }
 
     private void drawStatPanel(GuiGraphics graphics, int x, int y, int width, int height) {
-        graphics.fill(x, y, x + width, y + height, PANEL_SHADOW);
-        graphics.fill(x + 1, y + 1, x + width - 1, y + height - 1, PANEL);
-        graphics.fill(x + 1, y + 1, x + width - 2, y + 2, PANEL_LIGHT);
-        graphics.fill(x + 1, y + 1, x + 2, y + height - 2, PANEL_LIGHT);
-        graphics.fill(x + 2, y + height - 2, x + width - 1, y + height - 1, PANEL_DARK_SHADOW);
-        graphics.fill(x + width - 2, y + 2, x + width - 1, y + height - 1, PANEL_DARK_SHADOW);
+        CodeGuiTheme.drawInsetPanel(graphics, x, y, width, height);
     }
 
     private void drawItemSlot(GuiGraphics graphics, int x, int y) {
-        graphics.fill(x, y, x + 22, y + 22, PANEL_SHADOW);
-        graphics.fill(x + 2, y + 2, x + 22, y + 22, PANEL_LIGHT);
-        graphics.fill(x + 2, y + 2, x + 20, y + 20, SLOT);
+        CodeGuiTheme.drawSlot(graphics, x, y, 22);
     }
 
     private void drawWoodPanel(GuiGraphics graphics, int x, int y, int width, int height) {
-        graphics.fill(x, y, x + width, y + height, WOOD_DARK);
-        graphics.fill(x + 2, y + 2, x + width - 2, y + height - 2, WOOD);
-        graphics.fill(x + 2, y + 2, x + width - 2, y + 4, WOOD_LIGHT);
-        graphics.fill(x + 2, y + height - 4, x + width - 2, y + height - 2, 0xFF6F3C20);
-        graphics.fill(x + 4, y + 19, x + width - 4, y + 20, 0x33722E12);
-        drawNail(graphics, x + 4, y + 4);
-        drawNail(graphics, x + width - 7, y + 4);
-        drawNail(graphics, x + 4, y + height - 7);
-        drawNail(graphics, x + width - 7, y + height - 7);
+        CodeGuiTheme.drawWoodHeader(graphics, x, y, width, height);
     }
 
     private void drawStatusBadge(GuiGraphics graphics, int x, int y, int width, int height) {
@@ -303,13 +273,10 @@ public class RestaurantManagementScreen extends Screen {
         graphics.fill(x + 2, y + 2, x + width - 2, y + height - 2, color);
         graphics.fill(x + 3, y + 3, x + width - 3, y + 5, brighten(color, 28));
         graphics.fill(x + 6, y + 8, x + 10, y + 12, this.open ? 0xFF83D275 : 0xFFE06A5E);
-        graphics.drawCenteredString(this.font, Component.literal(this.open ? "OPEN" : "CLOSED"),
-                x + width / 2 + 4, y + 6, 0xFFFFFFFF);
-    }
-
-    private void drawNail(GuiGraphics graphics, int x, int y) {
-        graphics.fill(x, y, x + 3, y + 3, 0xFF2E211A);
-        graphics.fill(x, y, x + 2, y + 2, 0xFFB9A684);
+        String status = this.open ? "OPEN" : "CLOSED";
+        graphics.drawString(this.font, Component.literal(status),
+                x + width / 2 + 4 - this.font.width(status) / 2,
+                y + (height - this.font.lineHeight) / 2, 0xFFFFFFFF, false);
     }
 
     private int brighten(int color, int amount) {

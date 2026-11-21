@@ -84,4 +84,65 @@ public class SeatingOutlineGameTests {
         manager.removeRestaurantAt(sign);
         helper.succeed();
     }
+
+    @GameTest(template = "seat_room")
+    public static void destroyedChairClearsSharedTableGroup(GameTestHelper helper) {
+        BlockPos chairOne = helper.absolutePos(new BlockPos(3, 1, 3));
+        BlockPos chairTwo = chairOne.south();
+        BlockPos table = chairOne.east();
+        BlockPos sign = helper.absolutePos(BlockPos.ZERO);
+        Restaurant restaurant = new Restaurant(sign, new AABB(sign, sign.offset(11, 5, 11)));
+        restaurant.addSeatTableLink(chairOne, table);
+        restaurant.addSeatTableLink(chairTwo, table);
+        RestaurantManager manager = RestaurantManager.get(helper.getLevel());
+        manager.addRestaurant(restaurant);
+        markLinkedGroup(helper, chairOne, chairTwo, table);
+
+        helper.assertTrue(RestaurantSeatingApi.clearSeatTableGroupAt(chairOne, helper.getLevel()),
+                "Destroying a linked chair must find its table group");
+        assertGroupRemoved(helper, restaurant, chairOne, chairTwo, table);
+
+        manager.removeRestaurantAt(sign);
+        helper.succeed();
+    }
+
+    @GameTest(template = "seat_room")
+    public static void destroyedTableClearsSharedChairGroup(GameTestHelper helper) {
+        BlockPos chairOne = helper.absolutePos(new BlockPos(3, 1, 3));
+        BlockPos chairTwo = chairOne.south();
+        BlockPos table = chairOne.east();
+        BlockPos sign = helper.absolutePos(BlockPos.ZERO);
+        Restaurant restaurant = new Restaurant(sign, new AABB(sign, sign.offset(11, 5, 11)));
+        restaurant.addSeatTableLink(chairOne, table);
+        restaurant.addSeatTableLink(chairTwo, table);
+        RestaurantManager manager = RestaurantManager.get(helper.getLevel());
+        manager.addRestaurant(restaurant);
+        markLinkedGroup(helper, chairOne, chairTwo, table);
+
+        helper.assertTrue(RestaurantSeatingApi.clearSeatTableGroupAt(table, helper.getLevel()),
+                "Destroying a linked table must find its chair group");
+        assertGroupRemoved(helper, restaurant, chairOne, chairTwo, table);
+
+        manager.removeRestaurantAt(sign);
+        helper.succeed();
+    }
+
+    private static void markLinkedGroup(GameTestHelper helper, BlockPos chairOne, BlockPos chairTwo, BlockPos table) {
+        RestaurantSeatingApi.markSeat(chairOne, helper.getLevel());
+        RestaurantSeatingApi.markSeat(chairTwo, helper.getLevel());
+        RestaurantSeatingApi.markTable(table, helper.getLevel());
+        RestaurantSeatingApi.linkSeatToTable(chairOne, table, helper.getLevel());
+        RestaurantSeatingApi.linkSeatToTable(chairTwo, table, helper.getLevel());
+    }
+
+    private static void assertGroupRemoved(GameTestHelper helper, Restaurant restaurant, BlockPos chairOne,
+                                           BlockPos chairTwo, BlockPos table) {
+        var data = SeatingMarkSavedData.get(helper.getLevel());
+        helper.assertTrue(restaurant.getSeatTableLinks().isEmpty(),
+                "The restaurant must not retain any links from the destroyed group");
+        helper.assertTrue(!data.isSeat(chairOne) && !data.isSeat(chairTwo) && !data.isTable(table),
+                "The destroyed group must not retain chair or table markers");
+        helper.assertTrue(data.getLinkedTable(chairOne).isEmpty() && data.getLinkedTable(chairTwo).isEmpty(),
+                "The destroyed group must not retain seat-to-table coordinates");
+    }
 }
